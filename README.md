@@ -38,7 +38,7 @@ MarketMoose is a containerised Flask application for tracking, analysing, and vi
 1. **Clone the repository**
 
   ```sh
-  git clone https://github.com/<your-username>/marketMoose.git
+  git clone https://github.com/theblackmoose/marketMoose.git
   cd marketMoose
   ```
 
@@ -135,4 +135,4 @@ The `web` service runs `exec gunicorn -w 4 -b 0.0.0.0:8000 marketMoose:app` by d
 
 ## 👨‍💻 Contact
 
-**Jerome Bellavance** – [GitHub](https://github.com/your-username)
+**theblackmoose** – [GitHub](https://github.com/theblackmoose)
