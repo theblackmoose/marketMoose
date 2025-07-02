@@ -1,6 +1,6 @@
 <h1 align="center">
   <a href="https://github.com/theblackmoose/marketMoose">
-    <img src="https://raw.githubusercontent.com/MadeInPierre/finalynx/main/docs/_static/logo_assistant_transparent.png" width="400" />
+    <img src="https://raw.githubusercontent.com/theblackmoose/marketMoose/main/docs/_static/logo_assistant_transparent.png" width="400" />
   </a>
   <br>MarketMoose<br>
 </h1>
