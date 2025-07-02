@@ -1,0 +1,968 @@
+<!--
+  dashboard.html – Main UI for the MarketMoose dashboard
+
+  Provides a multi-tab interface for:
+  - Viewing and sorting portfolio holdings
+  - Adding, listing, and deleting transactions
+  - Viewing dividends and broker fees
+  - Visualizing performance via charts (NAV, returns, P/L calendar)
+  - Exporting transactions and dividends as CSV files
+
+  Relies on Bootstrap (Darkly), Bootstrap Icons, and Chart.js.
+  State is preserved via hidden inputs and URL parameters.
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MarketMoose – Big antlers, big insights</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.0/dist/darkly/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+  <style>
+    body { background: #181a1b; color: #e0e0e0; }
+    .chart-container { background: #23272b; border-radius: 20px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); padding: 24px; margin-bottom: 32px; }
+    h4 { margin-top: 0.5em; color: #f8f9fa; }
+    .tab-content { background: #202225; border-radius: 16px; padding: 2em; margin-top: 1em; }
+    .chartjs-tooltip {
+      background: #23272b !important;
+      color: #fff !important;
+      border-radius: 8px !important;
+      padding: 10px !important;
+      box-shadow: 0 4px 12px #0006 !important;
+    }
+    .totals-heading {
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: #f8f9fa;
+      margin-bottom: 0.5rem;
+      text-align: right;
+    }
+    .totals-list li {
+      background-color: #2c3036;
+      border: none;
+      border-radius: 8px;
+      margin-bottom: 6px;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: #e0e0e0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .totals-list li i {
+      margin-right: 8px;
+    }
+    .totals-list li span {
+      margin-left: 1.5rem; /* approx 5 spaces */
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body class="p-4">
+<div class="container">
+  <header class="mb-4">
+    <h1 class="display-4">MarketMoose</h1>
+    <p class="lead"><em>Big antlers, big insights</em></p>
+  </header>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+  <h3>Portfolio Dashboard</h3>
+  <ul class="nav nav-tabs" id="tabMenu" role="tablist">
+    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#assets" role="tab" aria-controls="assets" aria-selected="true">Assets</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#transactions" role="tab" aria-controls="transactions" aria-selected="false">Transactions</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#dividends" role="tab" aria-controls="dividends" aria-selected="false">Dividends</a></li>
+  </ul>
+  <div class="tab-content mt-3">
+
+    <!-- ────────────────────────────────
+        ASSETS TAB – Portfolio Summary
+    ────────────────────────────────── -->
+    <div id="assets" class="tab-pane fade show active" role="tabpanel">
+      <form method="get" class="row g-2 align-items-center mb-3 justify-content-end">
+        <div class="col-auto">
+          <label for="display_currency" class="form-label mb-0">
+            <i class="bi bi-currency-exchange me-2"></i>Display in:
+          </label>
+        </div>
+        <div class="col-auto">
+          <select id="display_currency" name="display_currency" class="form-select" onchange="this.form.submit()">
+            {% for cur in currency_choices %}
+              <option value="{{ cur }}" {% if cur==display_currency %}selected{% endif %}>{{ cur }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <!-- Keep all hidden inputs -->
+        <input type="hidden" name="order_by" value="{{ order_by }}">
+        <input type="hidden" name="fy" value="{{ selected_fy }}">
+        <input type="hidden" name="market_value_period" value="{{ market_value_period }}">
+        <input type="hidden" name="benchmark" value="{{ selected_benchmark }}">
+        <input type="hidden" name="current_tab" id="current_tab_input" value="{{ current_tab }}">
+        <noscript><div class="col-auto"><button type="submit" class="btn btn-primary btn-sm">Go</button></div></noscript>
+      </form>
+
+      <h3>Total Market Value: {{ display_currency }} {{ '{:,.2f}'.format(total_value or 0) }}</h3>
+      <h4 class="{% if total_change_amt >= 0 %}text-success{% else %}text-danger{% endif %}">
+        Total P/L:
+        {{ display_currency }}
+        {{ "{:+,.2f}".format(total_change_amt) }}
+        ({{ "{:+.2f}".format(total_change_pct) }}%)
+      </h4>
+
+      <h4 class="mb-4">
+        Total Dividend Income:
+        {{ display_currency }} {{ '{:,.2f}'.format(total_dividends) }}
+      </h4>
+
+      <form method="get" class="row g-2 align-items-center mb-3">
+        <div class="col-auto">
+          <label for="fy_select_value" class="form-label mb-0">Financial Year:</label>
+        </div>
+        <div class="col-auto">
+          <select id="fy_select_value" name="fy" class="form-select" onchange="this.form.submit()">
+          {% for fy in fy_choices %}
+            <option value="{{ fy }}" {% if fy==selected_fy %}selected{% endif %}>{{ fy if fy!='All' else 'All Transactions' }}</option>
+          {% endfor %}
+          </select>
+        </div>
+        <input type="hidden" name="order_by" value="{{ order_by }}">
+        <input type="hidden" name="display_currency" value="{{ display_currency }}">
+        <input type="hidden" name="market_value_period" value="{{ market_value_period }}">
+        <input type="hidden" name="benchmark" value="{{ selected_benchmark }}">
+        <input type="hidden" name="current_tab" id="current_tab_input" value="{{ current_tab }}">
+        <noscript><button type="submit" class="btn btn-primary btn-sm">Go</button></noscript>
+      </form>
+
+      <div class="my-4">
+        <form method="get" class="d-flex align-items-center justify-content-end mb-2">
+          <label class="me-2 mb-0" for="marketValuePeriod">Show Market Value & Return for:</label>
+          <select id="marketValuePeriod" name="market_value_period" class="form-select w-auto" onchange="this.form.submit()">
+            <option value="1m" {% if market_value_period == '1m' %}selected{% endif %}>1 month</option>
+            <option value="3m" {% if market_value_period == '3m' %}selected{% endif %}>3 months</option>
+            <option value="6m" {% if market_value_period == '6m' %}selected{% endif %}>6 months</option>
+            <option value="1y" {% if market_value_period == '1y' %}selected{% endif %}>1 year</option>
+            <option value="3y" {% if market_value_period == '3y' %}selected{% endif %}>3 years</option>
+            <option value="5y" {% if market_value_period == '5y' %}selected{% endif %}>5 years</option>
+            <option value="all" {% if market_value_period == 'all' %}selected{% endif %}>All</option>
+          </select>
+          <input type="hidden" name="order_by" value="{{ order_by }}">
+          <input type="hidden" name="display_currency" value="{{ display_currency }}">
+          <input type="hidden" name="fy" value="{{ selected_fy }}">
+          <input type="hidden" name="benchmark" value="{{ selected_benchmark }}">
+          <input type="hidden" name="current_tab" id="current_tab_input" value="{{ current_tab }}">
+        </form>
+
+        <div class="my-4 chart-container">
+          <h4 class="mb-3"><i class="bi bi-graph-up-arrow me-2"></i>Market Value</h4>
+          <canvas id="marketValueChart" height="100"></canvas>
+        </div>
+
+        <div class="my-4 chart-container">
+          <form method="get" class="mb-3 d-flex align-items-center justify-content-end">
+            <label class="me-2 mb-0" for="benchmarkSelect">Compare with:</label>
+            <select id="benchmarkSelect" name="benchmark" class="form-select w-auto me-2" onchange="this.form.submit()">
+              {% for key, info in benchmark_choices.items() %}
+                <option value="{{ key }}" {% if selected_benchmark == key %}selected{% endif %}>{{ info.label }}</option>
+              {% endfor %}
+            </select>
+            <!-- preserve other filters -->
+            <input type="hidden" name="order_by" value="{{ order_by }}">
+            <input type="hidden" name="display_currency" value="{{ display_currency }}">
+            <input type="hidden" name="fy" value="{{ selected_fy }}">
+            <input type="hidden" name="market_value_period" value="{{ market_value_period }}">
+            <input type="hidden" name="current_tab" id="current_tab_input" value="{{ current_tab }}">
+            <noscript><button type="submit" class="btn btn-primary btn-sm">Go</button></noscript>
+          </form>
+          <h4 class="mb-3"><i class="bi bi-clipboard-pulse me-2"></i>Return</h4>
+          <canvas id="returnHistoryChart" height="100"></canvas>
+        </div>
+      </div>
+
+      <div class="my-4 chart-container">
+        <h4 class="mb-3"><i class="bi bi-calendar4-week me-2"></i>P/L Calendar</h4>
+        <canvas id="plCalendarChart" height="60"></canvas>
+      </div>
+
+      <div class="card p-3 mb-4">
+        <form method="get" class="mb-2 d-flex align-items-center justify-content-end">
+          <label class="me-2 mb-0">Order Holdings by:</label>
+          <select name="order_by" class="form-select w-auto me-2" onchange="this.form.submit()">
+            <option value="symbol" {% if order_by == 'symbol' %}selected{% endif %}>Symbol</option>
+            <option value="live_value" {% if order_by == 'live_value' %}selected{% endif %}>Market Value</option>
+            <option value="change_amount" {% if order_by == 'change_amount' %}selected{% endif %}>Total Gain ($)</option>
+            <option value="change_pct" {% if order_by == 'change_pct' %}selected{% endif %}>Total Gain (%)</option>
+            <option value="shares" {% if order_by == 'shares' %}selected{% endif %}>Shares</option>
+            <option value="trade_cost" {% if order_by == 'trade_cost' %}selected{% endif %}>Total Cost</option>
+            <option value="dividends" {% if order_by == 'dividends' %}selected{% endif %}>Dividends</option>
+          </select>
+          <input type="hidden" name="display_currency" value="{{ display_currency }}">
+          <input type="hidden" name="fy" value="{{ selected_fy }}">
+          <input type="hidden" name="market_value_period" value="{{ market_value_period }}">
+          <input type="hidden" name="benchmark" value="{{ selected_benchmark }}">
+          <input type="hidden" name="current_tab" id="current_tab_input" value="{{ current_tab }}">
+          <noscript><button type="submit" class="btn btn-primary btn-sm">Go</button></noscript>
+        </form>
+
+        <h4 class="mb-3"><i class="bi bi-wallet2 me-2"></i>Holdings</h4>
+        <table class="table table-striped table-hover">
+          <thead>
+            <tr>
+              <th>Symbol</th>
+              <th>Shares</th>
+              <th>Market Price</th>
+              <th>Total Value</th>
+              <th>Total Cost</th>
+              <th>Market Value</th>
+              <th>Total P/L</th>
+              <th>Dividends</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in portfolio %}
+            <tr>
+              <td>{{ row.symbol }}</td>
+              <td>
+                {% if row.shares is number and (row.shares % 1) == 0 %}
+                  {{ row.shares|int }}
+                {% else %}
+                  {{ '{:.4f}'.format(row.shares) }}
+                {% endif %}
+              </td>
+              <td>
+                {% if row.original_currency is defined %}{{ row.original_currency }} {% endif %}
+                {{ '{:,.2f}'.format(row.price) if row.price is defined else '' }}
+              </td>
+              <td>{{ display_currency }} {{ '{:,.2f}'.format(row.trade_value) }}</td>
+              <td>{{ display_currency }} {{ '{:,.2f}'.format(row.trade_cost) }}</td>
+              <td class="{% if row.live_value > row.trade_cost %}text-success{% else %}text-danger{% endif %}">
+                {{ display_currency }} {{ '{:,.2f}'.format(row.live_value) }}
+              </td>
+              <td class="{% if row.change_amount >= 0 %}text-success{% else %}text-danger{% endif %}">
+                {{ display_currency }} {{ '{:+,.2f}'.format(row.change_amount) }}
+                ({{ '{:+.2f}'.format(row.change_pct) }}%)
+              </td>
+              <td>
+                {{ display_currency }} 
+                {% if row.dividends %}
+                  {{ '{:,.2f}'.format(row.dividends) }}
+                {% else %}
+                  &mdash;
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ────────────────────────────────
+        TRANSACTIONS TAB – Manage Buys/Sells
+    ────────────────────────────────── -->
+    <div id="transactions" class="tab-pane fade" role="tabpanel">
+      <div class="card mb-4 p-3">
+        <h4>Add New Transaction</h4>
+        <form method="post" class="mt-3">
+          <div class="col">
+            <div class="col mb-3">
+              <label>Side</label>
+              <select name="tx_side" class="form-select" required>
+                <option value="buy">Buy</option>
+                <option value="sell">Sell</option>
+              </select>
+            </div>
+            <div class="row mb-3">
+              <div class="col">
+                <label>Symbol</label>
+                <input name="tx_symbol" class="form-control" required>
+              </div>
+              <div class="col">
+                <label>Exchange</label>
+                <select name="tx_exchange" class="form-select" required>
+                  <option value="">Choose one…</option>
+                  <option value="ASX">ASX (AUD)</option>
+                  <option value="BM&FBOVESPA">BM&FBOVESPA (BRL)</option>
+                  <option value="Euronext">Euronext (EUR)</option>
+                  <option value="FWB">FWB (EUR)</option>
+                  <option value="HKEX">HKEX (HKD)</option>
+                  <option value="JPX">JPX (JPY)</option>
+                  <option value="JSE">JSE (ZAR)</option>
+                  <option value="KRX">KRX (KRW)</option>
+                  <option value="LSE">LSE (GBP)</option>
+                  <option value="NASDAQ">NASDAQ (USD)</option>
+                  <option value="NSE">NSE (INR)</option>
+                  <option value="NYSE">NYSE (USD)</option>
+                  <option value="SGX">SGX (SGD)</option>
+                  <option value="SSE">SSE (CNY)</option>
+                  <option value="SZSE">SZSE (CNY)</option>
+                  <option value="TSX">TSX (CAD)</option>
+                  <option value="TWSE">TWSE (TWD)</option>
+                </select>
+              </div>
+              <div class="col">
+                <label>Shares</label>
+                <input name="tx_shares" type="number" step="any" class="form-control" required>
+              </div>
+            </div>
+            <div class="row mb-3">
+              <div class="col">
+                <label>Price</label>
+                <input name="tx_price" type="number" step="any" class="form-control" required>
+              </div>
+              <div class="col">
+                <label>Fee</label>
+                <input name="tx_fee" type="number" step="any" class="form-control" required>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label>Date</label>
+              <input name="tx_date" type="date" class="form-control" required>
+            </div>
+          </div>
+          <input type="hidden" name="display_currency" value="{{ display_currency }}">
+          <input type="hidden" name="market_value_period" value="{{ market_value_period }}">
+          <input type="hidden" name="fy" value="{{ selected_fy }}">
+          <input type="hidden" name="benchmark" value="{{ selected_benchmark }}">
+          <input type="hidden" name="order_by" value="{{ order_by }}">
+          <input type="hidden" name="current_tab" value="{{ current_tab }}">
+          <button type="submit" class="btn btn-primary"><i class="bi bi-database-add me-2"></i>Add Transaction</button>
+        </form>
+      </div>
+
+      <div class="card p-3 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h4 class="mb-3"><i class="bi bi-clipboard-data me-2"></i>All Transactions</h4>
+          <form method="get" class="mb-0">
+            <select id="fy_select" name="fy" class="form-select w-auto" onchange="this.form.submit()">
+              {% for fy in fy_choices %}
+                <option value="{{ fy }}" {% if fy==selected_fy %}selected{% endif %}>{{ fy if fy!='All' else 'All Transactions' }}</option>
+              {% endfor %}
+            </select>
+            <input type="hidden" name="order_by" value="{{ order_by }}">
+            <input type="hidden" name="display_currency" value="{{ display_currency }}">
+            <input type="hidden" name="market_value_period" value="{{ market_value_period }}">
+            <input type="hidden" name="benchmark" value="{{ selected_benchmark }}">
+            <input type="hidden" name="current_tab" value="{{ current_tab }}">
+            <noscript><button type="submit" class="btn btn-primary btn-sm mt-2">Go</button></noscript>
+          </form>
+        </div>
+
+        <form method="post">
+          <input type="hidden" name="display_currency" value="{{ display_currency }}">
+          <input type="hidden" name="market_value_period" value="{{ market_value_period }}">
+          <input type="hidden" name="fy" value="{{ selected_fy }}">
+          <input type="hidden" name="benchmark" value="{{ selected_benchmark }}">
+          <input type="hidden" name="order_by" value="{{ order_by }}">
+          <input type="hidden" name="current_tab" value="{{ current_tab }}">
+          <button type="submit" class="btn btn-danger mb-3"><i class="bi bi-trash3 me-2"></i>Delete Selected</button>
+          <div class="mb-2">
+            <button type="button" id="select-all-btn" class="btn btn-secondary btn-sm me-2">
+              Select All
+            </button>
+            <button type="button" id="deselect-all-btn" class="btn btn-secondary btn-sm">
+              Deselect All
+            </button>
+          </div>
+          <table class="table table-striped align-middle table-hover table-sm">
+            <thead>
+              <tr>
+                <th>Select</th><th>Date</th><th>Symbol</th><th>Shares</th>
+                <th>Price</th><th>Market Price</th><th>Trade Value</th>
+                <th>Broker Fee</th><th>Trade Cost/Return</th><th>Market Value</th>
+                <th>Exchange</th><th>Currency</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for _, tx in transactions.iterrows() %}
+              <tr>
+                <td class="text-center">
+                  <input type="checkbox" name="delete_ids" value="{{ tx['id'] }}">
+                </td>
+                <td>
+                  {% if tx['date'] is not none %}
+                    {{ tx['date'].date() }}
+                  {% else %}
+                    &mdash;
+                  {% endif %}
+                </td>
+                <td>{{ tx['symbol'] }}</td>
+                <td>
+                  {% if tx['shares'] is number and (tx['shares'] % 1) == 0 %}
+                    {{ tx['shares']|int }}
+                  {% else %}
+                    {{ '{:.4f}'.format(tx['shares']) }}
+                  {% endif %}
+                </td>
+                <td>
+                  {% if tx['price'] is not none %}
+                    ${{ '{:,.2f}'.format(tx['price']) }}
+                  {% else %}
+                    &mdash;
+                  {% endif %}
+                </td>
+                {% if tx['shares'] < 0 %}
+                  <td class="text-muted">—</td>
+                {% else %}
+                  {% if tx['live_price'] is not none and tx['price'] is not none %}
+                    {% if tx['live_price'] > tx['price'] %}
+                      <td class="text-success">${{ '{:,.2f}'.format(tx['live_price']) }}</td>
+                    {% else %}
+                      <td class="text-danger">${{ '{:,.2f}'.format(tx['live_price']) }}</td>
+                    {% endif %}
+                  {% else %}
+                    <td class="text-muted">—</td>
+                  {% endif %}
+                {% endif %}
+                <td>
+                  {% if tx['trade_value'] is not none %}
+                    ${{ '{:,.2f}'.format(tx['trade_value']) }}
+                  {% else %}
+                    &mdash;
+                  {% endif %}
+                </td>
+                <td>
+                  {% if tx['broker_fee'] is not none %}
+                    ${{ '{:,.2f}'.format(tx['broker_fee']) }}
+                  {% else %}
+                    &mdash;
+                  {% endif %}
+                </td>
+                <td>
+                  {% if tx['trade_cost'] is not none %}
+                    ${{ '{:,.2f}'.format(tx['trade_cost']) }}
+                  {% else %}
+                    &mdash;
+                  {% endif %}
+                </td>
+                {% if tx['shares'] < 0 %}
+                  <td class="text-muted">—</td>
+                {% else %}
+                  {% if tx['live_value'] is not none and tx['trade_cost'] is not none %}
+                    {% if tx['live_value'] > tx['trade_cost'] %}
+                      <td class="text-success">${{ '{:,.2f}'.format(tx['live_value']) }}</td>
+                    {% else %}
+                      <td class="text-danger">${{ '{:,.2f}'.format(tx['live_value']) }}</td>
+                    {% endif %}
+                  {% else %}
+                    <td class="text-muted">—</td>
+                  {% endif %}
+                {% endif %}
+                <td>{{ tx['exchange'] }}</td>
+                <td>{{ tx['currency'] }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <div class="text-end mb-3">
+            <a href="{{ url_for('main.export_transactions', fy=selected_fy) }}" class="btn btn-primary bi bi-file-earmark-arrow-down me-2"> Export CSV</a>
+          </div>
+        </form>
+      </div>
+
+      <div class="d-flex justify-content-end">
+        <div class="d-flex flex-column align-items-end mt-4" style="max-width: 360px;">
+          <div class="totals-heading"><i class="bi bi-piggy-bank me-2"></i>Total Amount Invested</div>
+          <ul class="list-group w-auto totals-list mb-3">
+            {% for curr, amt in invested_summary.items() %}
+              <li class="list-group-item d-flex justify-content-between align-items-center">
+                {{ curr }}
+                <span>${{ '{:,.2f}'.format(amt) }}</span>
+              </li>
+            {% else %}
+              <li class="list-group-item text-muted">No purchases yet</li>
+            {% endfor %}
+          </ul>
+
+          <div class="totals-heading mt-3"><i class="bi bi-cash-stack me-2"></i>Total Amount Returned</div>
+          <ul class="list-group w-auto totals-list mb-3">
+            {% for curr, amt in returned_summary.items() %}
+              <li class="list-group-item d-flex justify-content-between">
+                {{ curr }}
+                <span>${{ '{:,.2f}'.format(amt) }}</span>
+              </li>
+            {% else %}
+              <li class="list-group-item text-muted">No sales yet</li>
+            {% endfor %}
+          </ul>
+
+          <div class="totals-heading mt-3"><i class="bi bi-send-dash me-2"></i>Total Broker Fees Paid</div>
+          <ul class="list-group w-auto totals-list">
+            {% for curr, amt in broker_fees_by_currency.items() %}
+              <li class="list-group-item d-flex justify-content-between align-items-center">
+                {{ curr }}
+                <span>${{ '{:,.2f}'.format(amt) }}</span>
+              </li>
+            {% else %}
+              <li class="list-group-item text-muted">No broker fees yet</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ────────────────────────────────
+        DIVIDENDS TAB – Income Tracking
+    ────────────────────────────────── -->
+    <div id="dividends" class="tab-pane fade" role="tabpanel">
+      <div class="card mb-4 p-3">
+        <h4>Add New Dividend</h4>
+        <form method="post" action="{{ url_for('main.dividends') }}" class="mt-3">
+          <div class="row mb-3">
+            <div class="col-md-3">
+              <label for="div_symbol" class="form-label">Symbol</label>
+              <input name="div_symbol" id="div_symbol" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label for="div_date" class="form-label">Date</label>
+              <input name="div_date" id="div_date" type="date" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label for="div_amount" class="form-label">Dividend Amount</label>
+              <input name="div_amount" id="div_amount" type="number" step="any" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label for="div_currency" class="form-label">Currency</label>
+              <select name="div_currency" id="div_currency" class="form-select" required>
+                {% for cur in currency_choices %}
+                  <option value="{{ cur }}">{{ cur }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <input type="hidden" name="display_currency" value="{{ display_currency }}">
+          <input type="hidden" name="market_value_period" value="{{ market_value_period }}">
+          <input type="hidden" name="fy" value="{{ selected_fy }}">
+          <input type="hidden" name="benchmark" value="{{ selected_benchmark }}">
+          <input type="hidden" name="order_by" value="{{ order_by }}">
+          <input type="hidden" name="current_tab" value="{{ current_tab }}">
+          <button type="submit" class="btn btn-primary"><i class="bi bi-database-add me-2"></i>Add Dividend</button>
+        </form>
+      </div>
+
+      <div class="card p-3 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h4 class="mb-3"><i class="bi bi-cash-coin me-2"></i>All Dividends</h4>
+          <form method="get" class="mb-0">
+            <select id="div_fy_select" name="fy" class="form-select w-auto" onchange="this.form.submit()">
+              {% for fy in fy_choices %}
+                <option value="{{ fy }}" {% if fy == selected_fy %}selected{% endif %}>{{ fy if fy != 'All' else 'All Dividends' }}</option>
+              {% endfor %}
+            </select>
+            <input type="hidden" name="display_currency" value="{{ display_currency }}">
+            <input type="hidden" name="market_value_period" value="{{ market_value_period }}">
+            <input type="hidden" name="order_by" value="{{ order_by }}">
+            <input type="hidden" name="benchmark" value="{{ selected_benchmark }}">
+            <input type="hidden" name="current_tab" value="dividends">
+            <noscript><button type="submit" class="btn btn-primary btn-sm mt-2">Go</button></noscript>
+          </form>
+        </div>
+
+        <form method="post" action="{{ url_for('main.dividends') }}">
+          <input type="hidden" name="display_currency" value="{{ display_currency }}">
+          <input type="hidden" name="market_value_period" value="{{ market_value_period }}">
+          <input type="hidden" name="fy" value="{{ selected_fy }}">
+          <input type="hidden" name="benchmark" value="{{ selected_benchmark }}">
+          <input type="hidden" name="order_by" value="{{ order_by }}">
+          <input type="hidden" name="current_tab" value="{{ current_tab }}">
+          <button type="submit" class="btn btn-danger mb-3"><i class="bi bi-trash3 me-2"></i>Delete Selected</button>
+          <div class="mb-2">
+            <button type="button" id="select-all-dividends-btn" class="btn btn-secondary btn-sm me-2">Select All</button>
+            <button type="button" id="deselect-all-dividends-btn" class="btn btn-secondary btn-sm">Deselect All</button>
+          </div>
+          <table class="table table-striped align-middle table-hover table-sm">
+            <thead>
+              <tr>
+                <th>Select</th>
+                <th>Date</th>
+                <th>Symbol</th>
+                <th>Dividend Amount</th>
+                <th>Currency</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for _, div in dividends_table.iterrows() %}
+              <tr>
+                <td class="text-center">
+                  <input type="checkbox" name="delete_ids" value="{{ div['id'] }}">
+                </td>
+                <td>{{ div['date'].date() if div['date'] is not none else '&mdash;' }}</td>
+                <td>{{ div['symbol'] }}</td>
+                <td>${{ '{:,.2f}'.format(div['dividend_amount']) }}</td>
+                <td>{{ div['currency'] }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <div class="text-end mb-3">
+            <a href="{{ url_for('main.export_dividends', fy=selected_fy) }}" class="btn btn-primary bi bi-file-earmark-arrow-down me-2"> Export CSV</a>
+          </div>
+        </form>
+      </div>
+
+      <div class="d-flex justify-content-end">
+        <div class="d-flex flex-column align-items-end mt-4" style="max-width: 360px;">
+          <div class="totals-heading"><i class="bi bi-calendar-heart me-2"></i>Total Dividends Received</div>
+          <ul class="list-group w-auto totals-list">
+            {% for curr, amt in total_dividends_by_currency.items() %}
+              <li class="list-group-item d-flex justify-content-between align-items-center">
+                {{ curr }}
+                <span>${{ '{:,.2f}'.format(amt) }}</span>
+              </li>
+            {% else %}
+              <li class="list-group-item text-muted">No dividends received</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Get current_tab from URL params or fallback to hash
+    const params = new URLSearchParams(window.location.search);
+    let tabToShow = params.get('current_tab') || window.location.hash;
+
+    if (tabToShow) {
+      if (!tabToShow.startsWith('#')) {
+        tabToShow = '#' + tabToShow;
+      }
+      const trigger = document.querySelector(`.nav-link[href="${tabToShow}"]`);
+      if (trigger) {
+        const tab = new bootstrap.Tab(trigger);
+        tab.show();
+      }
+    }
+
+    // Update hidden inputs whenever tab changes
+    const tabLinks = document.querySelectorAll('.nav-link[data-bs-toggle="tab"]');
+    tabLinks.forEach(link => {
+      link.addEventListener('shown.bs.tab', (e) => {
+        const newTabHash = e.target.getAttribute('href').substring(1);
+        // Update all hidden inputs for current_tab in forms
+        document.querySelectorAll('input[name="current_tab"]').forEach(input => {
+          input.value = newTabHash;
+        });
+      });
+    });
+  });
+</script>
+<script>
+const valueHistoryRaw = {{ value_history_json|safe }};
+const returnHistoryRaw = {{ return_history_json|safe }};
+const currency = "{{ display_currency }}";
+const marketValuePeriod = "{{ market_value_period }}";
+const benchmarkData = {{ benchmark_json|safe }};
+const benchmarkLabel = {{ benchmark_choices[selected_benchmark].label | tojson }};
+
+function filterHistory(period, dataRaw) {
+  const fyEndStr = "{{ fy_end }}";
+  const now = fyEndStr ? new Date(fyEndStr) : new Date();
+  let cutoff = null;
+  switch (period) {
+    case "1m":  cutoff = new Date(now); cutoff.setMonth(now.getMonth()-1); break;
+    case "3m":  cutoff = new Date(now); cutoff.setMonth(now.getMonth()-3); break;
+    case "6m":  cutoff = new Date(now); cutoff.setMonth(now.getMonth()-6); break;
+    case "1y":  cutoff = new Date(now); cutoff.setFullYear(now.getFullYear()-1); break;
+    case "3y":  cutoff = new Date(now); cutoff.setFullYear(now.getFullYear()-3); break;
+    case "5y":  cutoff = new Date(now); cutoff.setFullYear(now.getFullYear()-5); break;
+    case "all": default: cutoff = null;
+  }
+  return dataRaw.filter(row => !cutoff || (new Date(row.date) >= cutoff));
+}
+
+// ────────────────────────────────
+// Chart: Market Value History Line
+// Shows historical portfolio value over time
+// ────────────────────────────────
+function renderMarketValueChart(period) {
+  const data = filterHistory(period, valueHistoryRaw);
+  const labels = data.map(row => row.date);
+  const values = data.map(row => row.total_value);
+
+  const ctx = document.getElementById('marketValueChart').getContext('2d');
+  if (window.marketValueChartRef) window.marketValueChartRef.destroy();
+
+  window.marketValueChartRef = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: `Market Value (${currency})`,
+        data: values,
+        borderColor: "#00bfff",
+        backgroundColor: function(context) {
+          const chart = context.chart;
+          const {ctx: c, chartArea, scales} = chart;
+          if (!chartArea) return "rgba(0,204,255,0.15)";
+          const yZero = scales.y.getPixelForValue(0);
+          const yTop = chartArea.top;
+          // Ensure gradient always has height > 0
+          const gradTop = Math.min(yZero, yTop);
+          const gradBottom = Math.max(yZero, yTop);
+          const gradient = c.createLinearGradient(0, gradTop, 0, gradBottom);
+          gradient.addColorStop(0, "rgba(0,204,255,0.3)");
+          gradient.addColorStop(1, "rgba(0,204,255,0)");
+          return gradient;
+        },
+        fill: { target: 'origin' },
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        tension: 0.3,
+        borderWidth: 2.5,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false }
+      },
+      layout: { padding: 8 },
+      scales: {
+        x: {
+          type: 'time',
+          time: {
+            unit: 'day',
+            tooltipFormat: 'yyyy-MM-dd',
+            displayFormats: { day: 'yyyy-MM-dd' }
+          },
+          ticks: { color: "#e0e0e0" },
+          grid: { color: "rgba(255,255,255,0.05)" }
+        },
+        y: {
+          ticks: {
+            color: "#e0e0e0",
+            callback: function(value) { return currency + ' ' + value.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+              });
+            }
+          },
+          grid: { color: "rgba(255,255,255,0.08)" }
+        }
+      }
+    }
+  });
+}
+
+// ────────────────────────────────
+// Chart: Return History with Benchmark Comparison
+// Green for gain, red for loss, optional benchmark line
+// ────────────────────────────────
+function renderReturnChart(period) {
+  let data = filterHistory(period, returnHistoryRaw);
+  let labels = data.map(row => row.date);
+  let values = data.map(row => row.return);
+
+  const bmMap = {};
+  benchmarkData.forEach(row => { bmMap[row.date] = row.benchmark_return; });
+
+  // build benchmark series, then shift it so its first data‐point lines up
+  let benchmarkValues = labels.map(date => bmMap[date] ?? null);
+
+  if (benchmarkLabel !== "none" && benchmarkValues.some(v => v !== null)) {
+    const startReturn = values[0] ?? 0;
+    // find the first non-null benchmark reading
+    const firstIdx = benchmarkValues.findIndex(v => v !== null);
+    const benchStart = firstIdx >= 0 ? benchmarkValues[firstIdx] : 0;
+    const shift = startReturn - benchStart;
+    benchmarkValues = benchmarkValues.map(v =>
+      v !== null ? v + shift : null
+    );
+  }
+
+  const ctx = document.getElementById('returnHistoryChart').getContext('2d');
+  if (window.returnChartRef) window.returnChartRef.destroy();
+  // Build datasets array
+  const datasets = [
+    {
+      label: `Return (%)`,
+      data: values,
+      borderWidth: 2.5,
+      pointRadius: 0,
+      pointHoverRadius: 5,
+      tension: 0.3,
+      fill: { target: 'origin' },
+      segment: {
+        borderColor: ctx => {
+          const i = ctx.p0DataIndex;
+          return values[i] >= 0 ? "#28a745" : "#dc3545";
+        }
+      },
+      backgroundColor: function(context) {
+        const chart = context.chart;
+        const { ctx: c, chartArea, scales } = chart;
+        if (!chartArea) return null;
+        const yZero = scales.y.getPixelForValue(0);
+        const yTop = chartArea.top;
+        const yBottom = chartArea.bottom;
+
+        // Clamp zeroStop between 0 and 1 to avoid CanvasGradient error
+        let zeroStop = (yZero - yTop) / (yBottom - yTop);
+        zeroStop = Math.min(Math.max(zeroStop, 0), 1);
+
+        const gradient = c.createLinearGradient(0, yTop, 0, yBottom);
+        gradient.addColorStop(0, "rgba(40,167,69,0.5)");
+        gradient.addColorStop(zeroStop, "rgba(40,167,69,0)");
+        gradient.addColorStop(zeroStop, "rgba(220,53,69,0)");
+        gradient.addColorStop(1, "rgba(220,53,69,0.5)");
+        return gradient;
+      },
+    }
+  ];
+
+  // Conditionally add benchmark dataset only if benchmark is selected and has data
+  if (benchmarkLabel !== "none" && benchmarkValues.some(v => v !== null)) {
+    datasets.push({
+      label: benchmarkLabel,
+      data: benchmarkValues,
+      borderColor: '#bbbbbb',
+      borderDash: [6, 6],
+      borderWidth: 2,
+      pointRadius: 0,
+      fill: false,
+      tension: 0.2,
+      order: 0,
+    });
+  }
+
+  window.returnChartRef = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: datasets
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              let label = context.dataset.label || '';
+              if (label) label += ': ';
+              if (context.parsed.y !== null) label += context.parsed.y.toFixed(2) + '%';
+              return label;
+            }
+          }
+        }
+      },
+      layout: { padding: 8 },
+      scales: {
+        x: {
+          type: 'time',
+          time: {
+            unit: 'day',
+            tooltipFormat: 'yyyy-MM-dd',
+            displayFormats: { day: 'yyyy-MM-dd' }
+          },
+          ticks: { color: "#e0e0e0" },
+          grid: { color: "rgba(255,255,255,0.05)" }
+        },
+        y: {
+          ticks: {
+            color: "#e0e0e0",
+            callback: function(value) {
+              return value.toLocaleString(undefined, {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2
+              }) + '%';
+            }
+          },
+          grid: { color: "rgba(255,255,255,0.08)" }
+        }
+      }
+    }
+  });
+}
+
+// Render charts on page load
+renderMarketValueChart(marketValuePeriod);
+renderReturnChart(marketValuePeriod);
+</script>
+
+<script>
+const plCalendarRaw = {{ pl_calendar_json|safe }};
+const plLabels = plCalendarRaw.map(row => row.month);
+const plValues = plCalendarRaw.map(r => r.twr_pct);
+const ctxPl = document.getElementById('plCalendarChart').getContext('2d');
+
+window.plCalendarChartRef = new Chart(ctxPl, {
+  type: 'bar',
+  data: {
+    labels: plLabels,
+    datasets: [{
+      label: 'P/L (%)',
+      data: plValues,
+      backgroundColor: plValues.map(v => v >= 0 ? 'rgba(40,167,69,0.7)' : 'rgba(220,53,69,0.7)'),
+      borderColor: plValues.map(v => v >= 0 ? 'rgba(40,167,69,1)' : 'rgba(220,53,69,1)'),
+      borderWidth: 1,
+    }]
+  },
+  options: {
+    plugins: {
+      legend: { display: false }
+    },
+    scales: {
+      x: {
+        ticks: { color: "#e0e0e0" },
+        grid: { color: "rgba(255,255,255,0.05)" }
+      },
+      y: {
+        ticks: { color: "#e0e0e0", callback: value => value + '%' },
+        grid: { color: "rgba(255,255,255,0.08)" }
+      }
+    }
+  }
+});
+</script>
+
+<script>
+  document
+    .getElementById('select-all-btn')
+    .addEventListener('click', () => {
+      document
+        .querySelectorAll('input[name="delete_ids"]')
+        .forEach(cb => cb.checked = true);
+    });
+
+  document
+    .getElementById('deselect-all-btn')
+    .addEventListener('click', () => {
+      document
+        .querySelectorAll('input[name="delete_ids"]')
+        .forEach(cb => cb.checked = false);
+    });
+
+  // New dividends select/deselect all
+  document.getElementById('select-all-dividends-btn').addEventListener('click', () => {
+    document.querySelectorAll('#dividends input[name="delete_ids"]').forEach(cb => cb.checked = true);
+  });
+
+  document.getElementById('deselect-all-dividends-btn').addEventListener('click', () => {
+    document.querySelectorAll('#dividends input[name="delete_ids"]').forEach(cb => cb.checked = false);
+  });
+</script>
+
+<!-- Footer -->
+<footer class="text-center mt-5 pt-4 border-top text-muted small">
+  &copy; 2025 MarketMoose &ndash; Made with <i class="bi bi-heart"></i> for investors
+</footer>
+
+</body>
+</html>

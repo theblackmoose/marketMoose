@@ -1,0 +1,30 @@
+<!--
+error.html – Generic error template for MarketMoose
+
+Displays a user-friendly message when an unexpected error occurs.
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Error</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <div class="container">
+    <h1 style="color: #dc3545;">Oops! Something went wrong.</h1>
+    <p>An unexpected error occurred. Please try again later.</p>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul>
+          {% for category, message in messages %}
+            <li class="flash {{ category }}">{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+    <a href="{{ url_for('main.index') }}">Return to Dashboard</a>
+  </div>
+</body>
+</html>
