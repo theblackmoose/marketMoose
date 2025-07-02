@@ -1,0 +1,74 @@
+# docker-compose.yml – MarketMoose Deployment Configuration
+#
+# Defines two services:
+#  - redis: Caching backend (Redis 7)
+#  - web: Flask web server for MarketMoose
+#
+# Includes:
+#  - Security hardening (no privileges, read-only FS)
+#  - Persistent volumes for transactions and cached price data
+#  - Environment variables for configuration
+
+services:
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  web:
+    build: .
+    image: marketmoose:latest
+    restart: unless-stopped
+    depends_on:
+      - redis
+
+    ports:
+      - "30053:8000" # External port 30053 → Flask app inside container on port 8000
+
+    environment:
+      - TRANSACTIONS_FILE=/app/data/transactions.json
+      - CACHE_DIR=/app/stock_data_cache
+      - DIVIDENDS_FILE=/app/data/dividends.json
+      - REDIS_URL=redis://redis:6379/0
+      - FLASK_APP=marketMoose
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Drop all Linux capabilities (so the process has no extra privileges)
+    # ─────────────────────────────────────────────────────────────────────────
+    cap_drop:
+      - ALL
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Restrict privileges & make root fs read-only except for mounted volumes
+    # ─────────────────────────────────────────────────────────────────────────
+    security_opt:
+      - no-new-privileges:true
+
+    # Mount the container's root filesystem as read-only.
+    # (Any path not explicitly listed under "volumes:" will be read-only.)
+    read_only: true
+
+    # Mount a tmpfs at /tmp so that certain libraries or your app can write to /tmp.
+    tmpfs:
+      - /tmp
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # VOLUMES (override read_only for these paths so they remain writeable)
+    # ─────────────────────────────────────────────────────────────────────────
+    volumes:
+      # 1) Persist the transactions file and dividends file → this path will remain writeable,
+      #    even though the rest of the container is read-only.
+      - ./data:/app/data
+
+      # 2) Persist your yfinance cache → also writeable.
+      - ./stock_data_cache:/app/stock_data_cache
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Top-level “volumes:” must be defined here, at the same indent as “services:”
+# ─────────────────────────────────────────────────────────────────────────────
+volumes:
+  redis_data:

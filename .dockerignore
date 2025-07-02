@@ -1,0 +1,92 @@
+# .dockerignore – Prevents unnecessary files from being sent to Docker daemon
+# Helps reduce image size, avoid leaking secrets, and speed up build context transfer.
+
+# Exclude Python bytecode caches and compiled artifacts
+__pycache__/
+*.pyc
+*.py[cod]
+*.pyo
+*.pyd
+
+# Exclude virtual environments (if created locally)
+venv/
+.env/
+.venv/
+env/
+env.bak/
+venv.bak/
+
+# Exclude distributions and build artifacts
+build/
+dist/
+*.egg-info/
+*.eggs/
+*.wheel
+
+# Exclude logs and temporary files
+*.log
+*.tmp
+*.temp
+
+# Exclude coverage and testing reports
+htmlcov/
+.coverage
+.coverage.*
+.pytest_cache/
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# Exclude IDE/editor configurations
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Exclude OS-specific files
+.DS_Store
+Thumbs.db
+
+# Exclude Git repository data
+.git/
+.gitignore
+.gitattributes
+
+# Exclude Dockerfiles and compose files (optional, if you don’t need them in build context)
+docker-compose.yml
+Dockerfile
+*.lock
+
+# Exclude environment variable files or secrets
+*.env
+.env.*
+
+# Exclude node_modules or other package manager folders
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Exclude PyCharm and JetBrains IDE config
+.idea/
+*.iml
+
+# Exclude certificate or key files (if any stored locally, avoid leaks)
+*.crt
+*.key
+*.pem
+
+# Exclude Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Exclude large data, backups, or media you don’t want in the image
+backup/
+*.bak
+*.old
+*.zip
+*.tar.gz
+
+# Exclude coverage badges, documentation builds
+docs/_build/
+*.rst

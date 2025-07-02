@@ -1,0 +1,12 @@
+# requirements.txt – Python dependencies for MarketMoose
+#
+# Lists all packages required for running the Flask app in production.
+# Used by both Docker builds and local development setups.
+
+Flask
+Flask-Caching[redis]
+redis
+yfinance
+pandas
+numpy
+gunicorn
