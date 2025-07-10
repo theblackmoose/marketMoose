@@ -2,6 +2,10 @@
   <a href="https://github.com/theblackmoose/marketMoose">
     <img src="https://raw.githubusercontent.com/theblackmoose/marketMoose/main/docs/_static/logo_assistant_transparent.png" width="400" />
   </a>
+  <a href="https://github.com/theblackmoose/marketMoose">
+    <img src="https://github.com/theblackmoose/marketMoose/blob/main/static/MarketMoose.png" 
+    width="400" />
+  </a>
   <br>MarketMoose<br>
 </h1>
 
@@ -39,10 +43,16 @@ MarketMoose is a containerised Flask application for tracking, analysing, and vi
 
   ```sh
   git clone https://github.com/theblackmoose/marketMoose.git
+  ```
+  ```sh
   cd marketMoose
   ```
 
-2. **Start Docker** Ensure Docker Engine or Docker Desktop is running on your machine.
+  Note: For Windows users, you will be required to first install [Git for Windows](https://git-scm.com/downloads/win) to be able to run `git clone`.
+
+2. **Start Docker** 
+
+  Ensure Docker Engine or Docker Desktop is running on your machine.
 
 3. **Start with Docker Compose**
 
@@ -55,9 +65,11 @@ MarketMoose is a containerised Flask application for tracking, analysing, and vi
     - Gunicorn launches the Flask application with 4 worker processes.
     - Redis service is available for caching.
 
-4. **Access the Dashboard** Open a web browser at [http://localhost:30053](http://localhost:30053).
+4. **Access the Dashboard** 
 
-5. **View application logs** Optional
+  Open a web browser at [http://localhost:30053](http://localhost:30053).
+
+5. **View application logs** (Optional)
 
   ```sh
   docker-compose logs -f web
@@ -71,7 +83,18 @@ MarketMoose is a containerised Flask application for tracking, analysing, and vi
 
 ---
 
-## ⚙️ Configuration & Testing
+## ⚙️ Testing & Configuration
+
+- **View Docker containers**:
+  ```bash
+  docker-compose ps
+  ```
+- **Shell Access**:
+  ```bash
+  docker-compose exec web sh
+  ```
+
+---
 
 Place runtime settings in the `.env` file and reference them in `docker-compose.yml`. Key variables:
 
@@ -89,42 +112,41 @@ Place runtime settings in the `.env` file and reference them in `docker-compose.
 
 ---
 
-- **Tests**: Run `pytest` inside the container:
-  ```bash
-  docker-compose exec web pytest
-  ```
-- **Shell Access**:
-  ```bash
-  docker-compose exec web sh
-  ```
-- **View Docker containers**:
-  ```bash
-  docker-compose ps
-  ```
-
----
-
 ## 📄 Docker Compose References
 
 ```yaml
-version: '3.8'
 services:
-  web:
-    build: .
-    image: marketmoose:latest
-    env_file: .env
-    ports:
-      - "30053:8000" # External port 30053 → Flask app inside container on port 8000
-    depends_on:
-      - redis
-    volumes:
-      - ./stock_data_cache:/app/stock_data_cache
-      - ./data:/app/data
   redis:
     image: redis:7
     restart: unless-stopped
+    ports:
+      - "6379:6379"
     volumes:
       - redis_data:/data
+  web:
+    build: .
+    image: marketmoose:latest
+    restart: unless-stopped
+    depends_on:
+      - redis
+    ports:
+      - "30053:8000" # External port 30053 → Flask app inside container on port 8000
+    environment:
+      - TRANSACTIONS_FILE=/app/data/transactions.json
+      - CACHE_DIR=/app/stock_data_cache
+      - DIVIDENDS_FILE=/app/data/dividends.json
+      - REDIS_URL=redis://redis:6379/0
+      - FLASK_APP=marketMoose
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - ./data:/app/data
+      - ./stock_data_cache:/app/stock_data_cache
 volumes:
   redis_data:
 ```
@@ -135,4 +157,4 @@ The `web` service runs `exec gunicorn -w 4 -b 0.0.0.0:8000 marketMoose:app` by d
 
 ## 👨‍💻 Contact
 
-**theblackmoose** – [GitHub](https://github.com/theblackmoose)
+**Jerome Bellavance** – [GitHub](https://github.com/theblackmoose)
