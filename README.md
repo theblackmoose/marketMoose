@@ -3,7 +3,6 @@
     <img src="https://github.com/theblackmoose/marketMoose/blob/main/static/MarketMoose.png" 
     width="400" />
   </a>
-  <br>MarketMoose<br>
 </h1>
 
 # MarketMoose
