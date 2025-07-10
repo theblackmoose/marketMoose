@@ -82,10 +82,13 @@ MarketMoose is a containerised Flask application for tracking, analysing, and vi
 ## ⚙️ Testing & Configuration
 
 - **View Docker containers**:
+
   ```bash
   docker-compose ps
   ```
+
 - **Shell Access**:
+
   ```bash
   docker-compose exec web sh
   ```
