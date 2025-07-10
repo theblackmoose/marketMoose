@@ -1,8 +1,5 @@
 <h1 align="center">
   <a href="https://github.com/theblackmoose/marketMoose">
-    <img src="https://raw.githubusercontent.com/theblackmoose/marketMoose/main/docs/_static/logo_assistant_transparent.png" width="400" />
-  </a>
-  <a href="https://github.com/theblackmoose/marketMoose">
     <img src="https://github.com/theblackmoose/marketMoose/blob/main/static/MarketMoose.png" 
     width="400" />
   </a>
