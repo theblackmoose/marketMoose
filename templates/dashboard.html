@@ -738,8 +738,8 @@ function renderMarketValueChart(period) {
           type: 'time',
           time: {
             unit: 'day',
-            tooltipFormat: 'yyyy-MM-dd',
-            displayFormats: { day: 'yyyy-MM-dd' }
+            tooltipFormat: 'dd MMM yy',
+            displayFormats: { day: 'dd MMM yy' }
           },
           ticks: { color: "#e0e0e0" },
           grid: { color: "rgba(255,255,255,0.05)" }
@@ -868,8 +868,8 @@ function renderReturnChart(period) {
           type: 'time',
           time: {
             unit: 'day',
-            tooltipFormat: 'yyyy-MM-dd',
-            displayFormats: { day: 'yyyy-MM-dd' }
+            tooltipFormat: 'dd MMM yy',
+            displayFormats: { day: 'dd MMM yy' }
           },
           ticks: { color: "#e0e0e0" },
           grid: { color: "rgba(255,255,255,0.05)" }
@@ -880,7 +880,7 @@ function renderReturnChart(period) {
             callback: function(value) {
               return value.toLocaleString(undefined, {
                 minimumFractionDigits: 0,
-                maximumFractionDigits: 2
+                maximumFractionDigits: 0
               }) + '%';
             }
           },
@@ -909,8 +909,14 @@ window.plCalendarChartRef = new Chart(ctxPl, {
     datasets: [{
       label: 'P/L (%)',
       data: plValues,
-      backgroundColor: plValues.map(v => v >= 0 ? 'rgba(40,167,69,0.7)' : 'rgba(220,53,69,0.7)'),
-      borderColor: plValues.map(v => v >= 0 ? 'rgba(40,167,69,1)' : 'rgba(220,53,69,1)'),
+      backgroundColor: plValues.map(v => v >= 0 
+        ? 'rgba(40,167,69,0.7)' 
+        : 'rgba(220,53,69,0.7)'
+      ),
+      borderColor: plValues.map(v => v >= 0 
+        ? 'rgba(40,167,69,1)' 
+        : 'rgba(220,53,69,1)'
+      ),
       borderWidth: 1,
     }]
   },
@@ -921,10 +927,18 @@ window.plCalendarChartRef = new Chart(ctxPl, {
     scales: {
       x: {
         ticks: { color: "#e0e0e0" },
-        grid: { color: "rgba(255,255,255,0.05)" }
+        grid:  { color: "rgba(255,255,255,0.05)" }
       },
       y: {
-        ticks: { color: "#e0e0e0", callback: value => value + '%' },
+        ticks: {
+          color: "#e0e0e0",
+          stepSize: 1,                   // only whole‐number increments
+          callback: value =>            // format with zero decimals
+            value.toLocaleString(undefined, {
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 0
+            }) + '%'
+        },
         grid: { color: "rgba(255,255,255,0.08)" }
       }
     }
