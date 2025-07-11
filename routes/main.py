@@ -24,6 +24,7 @@ from flask import (
 )
 from contextlib import contextmanager
 from services.transactions import load_transactions, save_transaction
+from services.yf_cache import download_stock_data
 from services.dividends import load_dividends, save_dividend, delete_dividends
 from services.portfolio import (
     get_portfolio_value_history,
@@ -158,6 +159,12 @@ def _handle_new_transaction(request, order_by, display_currency, selected_fy, ma
         save_transaction(data)
         current_app.logger.info(f"Saved new transaction: {data}")
         flash("Transaction saved.", "success")
+        # trigger yfinance cache for this one ticker
+        try:
+            download_stock_data([(symbol, exch)], force_refresh=False)
+            current_app.logger.info(f"Triggered cache update for {symbol}{suffix}")
+        except Exception as e:
+            current_app.logger.warning(f"Cache update failed for {symbol}{suffix}: {e}")
     except Exception as e:
         current_app.logger.error(f"Error saving transaction: {e}")
         flash("Could not save transaction. Please try again.", "danger")
