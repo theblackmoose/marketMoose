@@ -351,7 +351,7 @@ def get_monthly_time_weighted_returns(
     current_app.logger.debug(f"Reindexed TWR:\n{monthly_twr}")
 
     return pd.DataFrame({
-        "month":  monthly_twr.index.strftime("%b-%y"),
+        "month":  monthly_twr.index.strftime("%b %y"),
         "twr_pct": monthly_twr.values
     })
     
