@@ -52,6 +52,18 @@ EXCHANGE_CURRENCY = {
     "NYSE":       "USD",
 }
 
+CURRENCY_SYMBOLS = {
+    "AUD": "A$",
+    "USD": "US$",
+    "EUR": "€",
+    "GBP": "£",
+    "JPY": "JP¥",
+    "CAD": "C$",
+    "SGD": "S$",
+    "NZD": "NZ$",
+    "CNY": "CN¥",
+}
+
 # Which suffix to append for each exchange so yfinance knows where to look
 EXCHANGE_SUFFIX = {
     "ASX":        ".AX",
