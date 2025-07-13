@@ -101,13 +101,12 @@ Place runtime settings in the `.env` file and reference them in `docker-compose.
 | ----------------------- | ----------------------------------------- | ----------------------------- |
 | `FLASK_ENV`             | Flask environment (`production`)          | `production`                  |
 | `SECRET_KEY`            | Flask secret key                          | (none)                        |
-| `ALPHA_VANTAGE_API_KEY` | Alpha Vantage API key for stock data      | (none)                        |
 | `REDIS_URL`             | Redis connection URL                      | `redis://redis:6379/0`        |
 | `CACHE_DIR`             | Directory for file caching                | `/app/stock_data_cache`       |
 | `TRANSACTIONS_FILE`     | Path to transactions JSON file            | `/app/data/transactions.json` |
 | `DIVIDENDS_FILE`        | Path to dividends JSON file               | `/app/data/dividends.json`    |
-| `EXCHANGE_SUFFIX`       | Suffix for ticker symbols (e.g. `.AX`)    | `.AX`                         |
-| `BENCHMARKS`            | Comma-separated list of benchmark symbols | (none)                        |
+| `EXCHANGE_SUFFIX`       | Suffix for ticker symbols (e.g. `.AX`)    | `ASX: .AX`, `JPX: .T,`, etc   |
+| `BENCHMARKS`            | List of benchmark symbols                 | `^GSPC`, `^AXJO`, `^AORD`     |
 
 ---
 
