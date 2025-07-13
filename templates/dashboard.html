@@ -114,17 +114,16 @@
         <noscript><div class="col-auto"><button type="submit" class="btn btn-primary btn-sm">Go</button></div></noscript>
       </form>
 
-      <h3>Total Market Value: {{ display_currency }} {{ '{:,.2f}'.format(total_value or 0) }}</h3>
+      <h3>Total Market Value: {{ currency_symbols[display_currency] }}{{ '{:,.2f}'.format(total_value or 0) }}</h3>
       <h4 class="{% if total_change_amt >= 0 %}text-success{% else %}text-danger{% endif %}">
         Total P/L:
-        {{ display_currency }}
-        {{ "{:+,.2f}".format(total_change_amt) }}
+        {{ currency_symbols[display_currency] }}{{ "{:+,.2f}".format(total_change_amt) }}
         ({{ "{:+.2f}".format(total_change_pct) }}%)
       </h4>
 
       <h4 class="mb-4">
         Total Dividend Income:
-        {{ display_currency }} {{ '{:,.2f}'.format(total_dividends) }}
+        {{ currency_symbols[display_currency] }}{{ '{:,.2f}'.format(total_dividends) }}
       </h4>
 
       <form method="get" class="row g-2 align-items-center mb-3">
@@ -242,22 +241,20 @@
                 {% endif %}
               </td>
               <td>
-                {% if row.original_currency is defined %}{{ row.original_currency }} {% endif %}
-                {{ '{:,.2f}'.format(row.price) if row.price is defined else '' }}
+                {% if row.original_currency is defined %}
+                {{ currency_symbols[row.original_currency] }}{% endif %}{{ '{:,.2f}'.format(row.price) if row.price is defined else '' }}
               </td>
-              <td>{{ display_currency }} {{ '{:,.2f}'.format(row.trade_value) }}</td>
-              <td>{{ display_currency }} {{ '{:,.2f}'.format(row.trade_cost) }}</td>
+              <td>{{ currency_symbols[display_currency] }}{{ '{:,.2f}'.format(row.trade_value) }}</td>
+              <td>{{ currency_symbols[display_currency] }}{{ '{:,.2f}'.format(row.trade_cost) }}</td>
               <td class="{% if row.live_value > row.trade_cost %}text-success{% else %}text-danger{% endif %}">
-                {{ display_currency }} {{ '{:,.2f}'.format(row.live_value) }}
+                {{ currency_symbols[display_currency] }}{{ '{:,.2f}'.format(row.live_value) }}
               </td>
               <td class="{% if row.change_amount >= 0 %}text-success{% else %}text-danger{% endif %}">
-                {{ display_currency }} {{ '{:+,.2f}'.format(row.change_amount) }}
+                {{ currency_symbols[display_currency] }}{{ '{:+,.2f}'.format(row.change_amount) }}
                 ({{ '{:+.2f}'.format(row.change_pct) }}%)
               </td>
               <td>
-                {{ display_currency }} 
-                {% if row.dividends %}
-                  {{ '{:,.2f}'.format(row.dividends) }}
+                {{ currency_symbols[display_currency] }}{% if row.dividends %}{{ '{:,.2f}'.format(row.dividends) }}
                 {% else %}
                   &mdash;
                 {% endif %}
@@ -276,60 +273,58 @@
       <div class="card mb-4 p-3">
         <h4>Add New Transaction</h4>
         <form method="post" class="mt-3">
-          <div class="col">
+          <div class="row mb-3">
             <div class="col mb-3">
-              <label>Side</label>
-              <select name="tx_side" class="form-select" required>
+              <label for="tx_side" class="form-label">Side</label>
+              <select name="tx_side" id="tx_side" class="form-select" required>
                 <option value="buy">Buy</option>
                 <option value="sell">Sell</option>
               </select>
             </div>
-            <div class="row mb-3">
-              <div class="col">
-                <label>Symbol</label>
-                <input name="tx_symbol" class="form-control" required>
-              </div>
-              <div class="col">
-                <label>Exchange</label>
-                <select name="tx_exchange" class="form-select" required>
-                  <option value="">Choose one…</option>
-                  <option value="ASX">ASX (AUD)</option>
-                  <option value="BM&FBOVESPA">BM&FBOVESPA (BRL)</option>
-                  <option value="Euronext">Euronext (EUR)</option>
-                  <option value="FWB">FWB (EUR)</option>
-                  <option value="HKEX">HKEX (HKD)</option>
-                  <option value="JPX">JPX (JPY)</option>
-                  <option value="JSE">JSE (ZAR)</option>
-                  <option value="KRX">KRX (KRW)</option>
-                  <option value="LSE">LSE (GBP)</option>
-                  <option value="NASDAQ">NASDAQ (USD)</option>
-                  <option value="NSE">NSE (INR)</option>
-                  <option value="NYSE">NYSE (USD)</option>
-                  <option value="SGX">SGX (SGD)</option>
-                  <option value="SSE">SSE (CNY)</option>
-                  <option value="SZSE">SZSE (CNY)</option>
-                  <option value="TSX">TSX (CAD)</option>
-                  <option value="TWSE">TWSE (TWD)</option>
-                </select>
-              </div>
-              <div class="col">
-                <label>Shares</label>
-                <input name="tx_shares" type="number" step="any" class="form-control" required>
-              </div>
+            <div class="col-md-3">
+              <label for="tx_symbol" class="form-label">Symbol</label>
+              <input name="tx_symbol" id="tx_symbol" class="form-control" required>
             </div>
-            <div class="row mb-3">
-              <div class="col">
-                <label>Price</label>
-                <input name="tx_price" type="number" step="any" class="form-control" required>
-              </div>
-              <div class="col">
-                <label>Fee</label>
-                <input name="tx_fee" type="number" step="any" class="form-control" required>
-              </div>
+            <div class="col-md-3">
+              <label for="tx_exchange" class="form-label">Exchange</label>
+              <select name="tx_exchange" id="tx_exchange" class="form-select" required>
+                <option value="">Choose one…</option>
+                <option value="ASX">ASX (AUD)</option>
+                <option value="BM&FBOVESPA">BM&FBOVESPA (BRL)</option>
+                <option value="Euronext">Euronext (EUR)</option>
+                <option value="FWB">FWB (EUR)</option>
+                <option value="HKEX">HKEX (HKD)</option>
+                <option value="JPX">JPX (JPY)</option>
+                <option value="JSE">JSE (ZAR)</option>
+                <option value="KRX">KRX (KRW)</option>
+                <option value="LSE">LSE (GBP)</option>
+                <option value="NASDAQ">NASDAQ (USD)</option>
+                <option value="NSE">NSE (INR)</option>
+                <option value="NYSE">NYSE (USD)</option>
+                <option value="SGX">SGX (SGD)</option>
+                <option value="SSE">SSE (CNY)</option>
+                <option value="SZSE">SZSE (CNY)</option>
+                <option value="TSX">TSX (CAD)</option>
+                <option value="TWSE">TWSE (TWD)</option>
+              </select>
             </div>
-            <div class="mb-3">
-              <label>Date</label>
-              <input name="tx_date" type="date" class="form-control" required>
+            <div class="col-md-3">
+              <label for="tx_date" class="form-label">Date</label>
+              <input name="tx_date" id="tx_date" type="date" class="form-control" required>
+            </div>
+          </div>
+          <div class="row mb-3">
+            <div class="col-md-3">
+              <label for="tx_shares" class="form-label">Shares</label>
+              <input name="tx_shares" id="tx_shares" type="number" step="any" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label for="tx_price" class="form-label">Price</label>
+              <input name="tx_price" id="tx_price" type="number" step="any" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label for="tx_fee" class="form-label">Fee</label>
+              <input name="tx_fee" id="tx_fee" type="number" step="any" class="form-control" required>
             </div>
           </div>
           <input type="hidden" name="display_currency" value="{{ display_currency }}">
@@ -408,7 +403,7 @@
                 </td>
                 <td>
                   {% if tx['price'] is not none %}
-                    ${{ '{:,.2f}'.format(tx['price']) }}
+                    {{ currency_symbols[tx['currency']] }}{{ '{:,.2f}'.format(tx['price']) }}
                   {% else %}
                     &mdash;
                   {% endif %}
@@ -418,9 +413,9 @@
                 {% else %}
                   {% if tx['live_price'] is not none and tx['price'] is not none %}
                     {% if tx['live_price'] > tx['price'] %}
-                      <td class="text-success">${{ '{:,.2f}'.format(tx['live_price']) }}</td>
+                      <td class="text-success">{{ currency_symbols[tx['currency']] }}{{ '{:,.2f}'.format(tx['live_price']) }}</td>
                     {% else %}
-                      <td class="text-danger">${{ '{:,.2f}'.format(tx['live_price']) }}</td>
+                      <td class="text-danger">{{ currency_symbols[tx['currency']] }}{{ '{:,.2f}'.format(tx['live_price']) }}</td>
                     {% endif %}
                   {% else %}
                     <td class="text-muted">—</td>
@@ -428,21 +423,21 @@
                 {% endif %}
                 <td>
                   {% if tx['trade_value'] is not none %}
-                    ${{ '{:,.2f}'.format(tx['trade_value']) }}
+                    {{ currency_symbols[tx['currency']] }}{{ '{:,.2f}'.format(tx['trade_value']) }}
                   {% else %}
                     &mdash;
                   {% endif %}
                 </td>
                 <td>
                   {% if tx['broker_fee'] is not none %}
-                    ${{ '{:,.2f}'.format(tx['broker_fee']) }}
+                    {{ currency_symbols[tx['currency']] }}{{ '{:,.2f}'.format(tx['broker_fee']) }}
                   {% else %}
                     &mdash;
                   {% endif %}
                 </td>
                 <td>
                   {% if tx['trade_cost'] is not none %}
-                    ${{ '{:,.2f}'.format(tx['trade_cost']) }}
+                    {{ currency_symbols[tx['currency']] }}{{ '{:,.2f}'.format(tx['trade_cost']) }}
                   {% else %}
                     &mdash;
                   {% endif %}
@@ -452,9 +447,9 @@
                 {% else %}
                   {% if tx['live_value'] is not none and tx['trade_cost'] is not none %}
                     {% if tx['live_value'] > tx['trade_cost'] %}
-                      <td class="text-success">${{ '{:,.2f}'.format(tx['live_value']) }}</td>
+                      <td class="text-success">{{ currency_symbols[tx['currency']] }}{{ '{:,.2f}'.format(tx['live_value']) }}</td>
                     {% else %}
-                      <td class="text-danger">${{ '{:,.2f}'.format(tx['live_value']) }}</td>
+                      <td class="text-danger">{{ currency_symbols[tx['currency']] }}{{ '{:,.2f}'.format(tx['live_value']) }}</td>
                     {% endif %}
                   {% else %}
                     <td class="text-muted">—</td>
@@ -477,9 +472,8 @@
           <div class="totals-heading"><i class="bi bi-piggy-bank me-2"></i>Total Amount Invested</div>
           <ul class="list-group w-auto totals-list mb-3">
             {% for curr, amt in invested_summary.items() %}
-              <li class="list-group-item d-flex justify-content-between align-items-center">
-                {{ curr }}
-                <span>${{ '{:,.2f}'.format(amt) }}</span>
+              <li class="list-group-item text-end">
+                {{ currency_symbols[curr] }}{{ '{:,.2f}'.format(amt) }}
               </li>
             {% else %}
               <li class="list-group-item text-muted">No purchases yet</li>
@@ -489,9 +483,8 @@
           <div class="totals-heading mt-3"><i class="bi bi-cash-stack me-2"></i>Total Amount Returned</div>
           <ul class="list-group w-auto totals-list mb-3">
             {% for curr, amt in returned_summary.items() %}
-              <li class="list-group-item d-flex justify-content-between">
-                {{ curr }}
-                <span>${{ '{:,.2f}'.format(amt) }}</span>
+              <li class="list-group-item text-end">
+                {{ currency_symbols[curr] }}{{ '{:,.2f}'.format(amt) }}
               </li>
             {% else %}
               <li class="list-group-item text-muted">No sales yet</li>
@@ -499,11 +492,10 @@
           </ul>
 
           <div class="totals-heading mt-3"><i class="bi bi-send-dash me-2"></i>Total Broker Fees Paid</div>
-          <ul class="list-group w-auto totals-list">
+          <ul class="list-group w-auto totals-list mb-3">
             {% for curr, amt in broker_fees_by_currency.items() %}
-              <li class="list-group-item d-flex justify-content-between align-items-center">
-                {{ curr }}
-                <span>${{ '{:,.2f}'.format(amt) }}</span>
+              <li class="list-group-item text-end">
+                {{ currency_symbols[curr] }}{{ '{:,.2f}'.format(amt) }}
               </li>
             {% else %}
               <li class="list-group-item text-muted">No broker fees yet</li>
@@ -600,7 +592,7 @@
                 </td>
                 <td>{{ div['date'].date() if div['date'] is not none else '&mdash;' }}</td>
                 <td>{{ div['symbol'] }}</td>
-                <td>${{ '{:,.2f}'.format(div['dividend_amount']) }}</td>
+                <td>{{ currency_symbols[div['currency']] }}{{ '{:,.2f}'.format(div['dividend_amount']) }}</td>
                 <td>{{ div['currency'] }}</td>
               </tr>
               {% endfor %}
@@ -615,11 +607,10 @@
       <div class="d-flex justify-content-end">
         <div class="d-flex flex-column align-items-end mt-4" style="max-width: 360px;">
           <div class="totals-heading"><i class="bi bi-calendar-heart me-2"></i>Total Dividends Received</div>
-          <ul class="list-group w-auto totals-list">
+          <ul class="list-group w-auto totals-list mb-3">
             {% for curr, amt in total_dividends_by_currency.items() %}
-              <li class="list-group-item d-flex justify-content-between align-items-center">
-                {{ curr }}
-                <span>${{ '{:,.2f}'.format(amt) }}</span>
+              <li class="list-group-item text-end">
+                {{ currency_symbols[curr] }}{{ '{:,.2f}'.format(amt) }}
               </li>
             {% else %}
               <li class="list-group-item text-muted">No dividends received</li>
@@ -665,7 +656,7 @@
 <script>
 const valueHistoryRaw = {{ value_history_json|safe }};
 const returnHistoryRaw = {{ return_history_json|safe }};
-const currency = "{{ display_currency }}";
+const currency = "{{ currency_symbols[display_currency] }}";
 const marketValuePeriod = "{{ market_value_period }}";
 const benchmarkData = {{ benchmark_json|safe }};
 const benchmarkLabel = {{ benchmark_choices[selected_benchmark].label | tojson }};
