@@ -37,7 +37,7 @@ from services.portfolio import (
 from services.fx import calculate_fx_rates, get_fy_dates
 from helpers import dataframe_to_json, render_empty_dashboard, get_benchmark_return_history
 from services.pl_calendar import pl_calendar_for_cached
-from config import BENCHMARKS, EXCHANGE_SUFFIX, EXCHANGE_CURRENCY
+from config import BENCHMARKS, EXCHANGE_SUFFIX, EXCHANGE_CURRENCY, CURRENCY_SYMBOLS
 
 def timed_step(label, func, *args, **kwargs):
     """Times and logs the execution of a function call with the given label."""
@@ -58,6 +58,11 @@ def log_timing(label: str):
         current_app.logger.info(f"[PROFILE] {label} took {elapsed:.3f} seconds.")
 
 main_bp = Blueprint("main", __name__)
+
+@main_bp.app_context_processor
+def inject_currency_symbols():
+    # now in every template you can do currency_symbols[code]
+    return dict(currency_symbols=CURRENCY_SYMBOLS)
 
 def _handle_delete(request, tx_file, order_by, display_currency, selected_fy, market_value_period, selected_benchmark, current_tab):
     """Handles deletion of one or more transactions and redirects back to the dashboard."""
@@ -157,7 +162,6 @@ def _handle_new_transaction(request, order_by, display_currency, selected_fy, ma
 
     try:
         save_transaction(data)
-        current_app.logger.info(f"Saved new transaction: {data}")
         flash("Transaction saved.", "success")
         # trigger yfinance cache for this one ticker
         try:
@@ -352,6 +356,19 @@ def _compute_dashboard_data(
         portfolio, total_value_converted, total_change_amt, total_change_pct = calculate_portfolio_value_asof(
             df_tx_for_calc, fx_rates, asof_date, dividends_per_symbol
         )
+    
+    # build a mapping symbol → transaction currency
+    symbol_currency = (
+        df_tx_for_table
+        .drop_duplicates(subset="symbol", keep="last")
+        .set_index("symbol")["currency"]
+        .to_dict()
+    )
+
+    # stick that currency code onto each portfolio row
+    for row in portfolio:
+        # fallback to your display_currency if somehow missing
+        row["original_currency"] = symbol_currency.get(row["symbol"], display_currency)
 
     current_app.logger.info(
         f"Portfolio as of {asof_date}: value={total_value_converted}, change={total_change_pct}%"
