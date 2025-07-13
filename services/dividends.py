@@ -70,7 +70,6 @@ def delete_dividends(ids: list[str]):
             f.seek(0)
             json.dump(div_list, f, indent=2)
             f.truncate()
-        current_app.logger.info(f"Deleted dividends: {ids}")
     except Exception as e:
         current_app.logger.error(f"Error deleting dividends from '{file_path}': {e}")
         raise RuntimeError("Could not delete dividends") from e
