@@ -241,7 +241,6 @@ def _handle_new_dividend(request, order_by, display_currency, selected_fy, marke
 
     try:
         save_dividend(data)
-        current_app.logger.info(f"Saved new dividend: {data}")
         flash("Dividend saved.", "success")
     except Exception as e:
         current_app.logger.error(f"Could not save dividend: {e}")
