@@ -35,7 +35,7 @@ MarketMoose is a containerised Flask application for tracking, analysing, and vi
 
 ## 🚀 Installation & Usage
 
-1. **Clone the repository**
+- **Clone the repository**
 
   ```sh
   git clone https://github.com/theblackmoose/marketMoose.git
