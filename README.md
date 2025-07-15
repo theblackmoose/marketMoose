@@ -46,11 +46,11 @@ MarketMoose is a containerised Flask application for tracking, analysing, and vi
 
   Note: For Windows users, you will be required to first install [Git for Windows](https://git-scm.com/downloads/win) to be able to run `git clone`.
 
-2. **Start Docker** 
+- **Start Docker** 
 
   Ensure Docker Engine or Docker Desktop is running on your machine.
 
-3. **Start with Docker Compose**
+- **Start with Docker Compose**
 
   ```sh
   docker-compose up -d --build
@@ -61,17 +61,17 @@ MarketMoose is a containerised Flask application for tracking, analysing, and vi
     - Gunicorn launches the Flask application with 4 worker processes.
     - Redis service is available for caching.
 
-4. **Access the Dashboard** 
+- **Access the Dashboard** 
 
   Open a web browser at [http://localhost:30053](http://localhost:30053).
 
-5. **View application logs** (Optional)
+- **View application logs** (Optional)
 
   ```sh
   docker-compose logs -f web
   ```
 
-6. **Stopping**
+- **Stopping**
 
   ```sh
   docker-compose down -v
@@ -83,13 +83,13 @@ MarketMoose is a containerised Flask application for tracking, analysing, and vi
 
 - **View Docker containers**:
 
-  ```bash
+  ```sh
   docker-compose ps
   ```
 
 - **Shell Access**:
 
-  ```bash
+  ```sh
   docker-compose exec web sh
   ```
 
