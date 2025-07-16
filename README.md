@@ -172,4 +172,4 @@ The `web` service runs `exec gunicorn -w 4 -b 0.0.0.0:8000 marketMoose:app` by d
 
 ## 👨‍💻 Contact
 
-**Jerome Bellavance** – [GitHub](https://github.com/theblackmoose)
+**theblackmoose** – [GitHub](https://github.com/theblackmoose)
