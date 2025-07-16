@@ -62,6 +62,12 @@ CURRENCY_SYMBOLS = {
     "SGD": "S$",
     "NZD": "NZ$",
     "CNY": "CN¥",
+    "BRL": "R$",
+    "HKD": "HK$",
+    "ZAR": "R",
+    "KRW": "₩",
+    "INR": "₹",
+    "TWD": "NT$",
 }
 
 # Which suffix to append for each exchange so yfinance knows where to look
