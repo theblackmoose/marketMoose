@@ -605,7 +605,7 @@ def index():
         current_app.logger.info("No transactions found; rendering empty dashboard.")
         return render_empty_dashboard(
             display_currency=display_currency,
-            currency_choices=["AUD", "USD", "EUR", "GBP", "JPY", "CAD", "SGD", "NZD", "CNY"],
+            currency_choices=["AUD", "USD", "EUR", "GBP", "JPY", "CAD", "SGD", "NZD", "CNY", "BRL", "HKD", "ZAR", "KRW", "INR", "TWD"],
             transactions=df_tx,
             fy_choices=fy_choices,
             selected_fy=selected_fy,
@@ -639,7 +639,7 @@ def index():
         total_change_amt=data["total_change_amt"],
         total_change_pct=data["total_change_pct"],
         display_currency=display_currency,
-        currency_choices=["AUD", "USD", "EUR", "GBP", "JPY", "CAD", "SGD", "NZD", "CNY"],
+        currency_choices=["AUD", "USD", "EUR", "GBP", "JPY", "CAD", "SGD", "NZD", "CNY", "BRL", "HKD", "ZAR", "KRW", "INR", "TWD"],
         transactions=data["transactions_table"],
         fy_choices=fy_choices,
         selected_fy=selected_fy,
