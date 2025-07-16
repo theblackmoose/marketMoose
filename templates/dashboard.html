@@ -234,11 +234,8 @@
             <tr>
               <td>{{ row.symbol }}</td>
               <td>
-                {% if row.shares is number and (row.shares % 1) == 0 %}
-                  {{ row.shares|int }}
-                {% else %}
-                  {{ '{:.4f}'.format(row.shares) }}
-                {% endif %}
+                {% set s = "{:.4f}".format(row.shares) %}
+                {{ s.rstrip('0').rstrip('.') }}
               </td>
               <td>
                 {% if row.original_currency is defined %}
@@ -288,7 +285,7 @@
             <div class="col-md-3">
               <label for="tx_exchange" class="form-label">Exchange</label>
               <select name="tx_exchange" id="tx_exchange" class="form-select" required>
-                <option value="">Choose one…</option>
+                <option value="" hidden>Select one…</option>
                 <option value="ASX">ASX (AUD)</option>
                 <option value="BM&FBOVESPA">BM&FBOVESPA (BRL)</option>
                 <option value="Euronext">Euronext (EUR)</option>
@@ -395,11 +392,8 @@
                 </td>
                 <td>{{ tx['symbol'] }}</td>
                 <td>
-                  {% if tx['shares'] is number and (tx['shares'] % 1) == 0 %}
-                    {{ tx['shares']|int }}
-                  {% else %}
-                    {{ '{:.4f}'.format(tx['shares']) }}
-                  {% endif %}
+                  {% set s = "{:.4f}".format(tx['shares']) %}
+                  {{ s.rstrip('0').rstrip('.') }}
                 </td>
                 <td>
                   {% if tx['price'] is not none %}
@@ -527,7 +521,8 @@
             </div>
             <div class="col-md-3">
               <label for="div_currency" class="form-label">Currency</label>
-              <select name="div_currency" id="div_currency" class="form-select" required>
+              <select name="div_currency" id="div_currency" class="form-select" required autocomplete="off">
+                <option value="" disabled selected hidden>Select one…</option>
                 {% for cur in currency_choices %}
                   <option value="{{ cur }}">{{ cur }}</option>
                 {% endfor %}
