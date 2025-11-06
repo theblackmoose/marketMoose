@@ -60,15 +60,18 @@ services:
     # VOLUMES (override read_only for these paths so they remain writeable)
     # ─────────────────────────────────────────────────────────────────────────
     volumes:
-      # 1) Persist the transactions file and dividends file → this path will remain writeable,
-      #    even though the rest of the container is read-only.
-      - ./data:/app/data
+      # 1) The transactions and dividents file are stored in named volumes,
+      #    and avoid host-FS permission mismatches and stay writable.
+      - mm_data:/app/data
 
-      # 2) Persist your yfinance cache → also writeable.
-      - ./stock_data_cache:/app/stock_data_cache
+      # 2) The yfinance cache are stored in named volumes,
+      #    and avoid host-FS permission mismatches and stay writable.
+      - mm_stock_data_cache:/app/stock_data_cache
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Top-level “volumes:” must be defined here, at the same indent as “services:”
 # ─────────────────────────────────────────────────────────────────────────────
 volumes:
   redis_data:
+  mm_data:
+  mm_stock_data_cache:
