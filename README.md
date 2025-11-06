@@ -15,7 +15,7 @@ MarketMoose is a containerised Flask application for tracking, analysing, and vi
 
 ## ✨ Features
 
-- **Containerized Deployment:** Everything runs in Docker with a single `docker-compose up` command.
+- **Containerized Deployment:** Everything runs in Docker with a single `docker compose up` command.
 - **Gunicorn Server:** High-performance WSGI server for production-grade serving.
 - **Portfolio Tracking:** Imports transactions to view current and historical holdings.
 - **Time-Weighted Returns:** Monthly and daily time-weighted return calculations.
@@ -53,7 +53,7 @@ MarketMoose is a containerised Flask application for tracking, analysing, and vi
 - **Start with Docker Compose**
 
   ```sh
-  docker-compose up -d --build
+  docker compose up -d --build
   ```
 
   - **What happens:**
@@ -68,13 +68,25 @@ MarketMoose is a containerised Flask application for tracking, analysing, and vi
 - **View application logs** (Optional)
 
   ```sh
-  docker-compose logs -f web
+  docker compose logs -f web
   ```
 
 - **Stopping**
 
   ```sh
-  docker-compose down -v
+  docker compose stop
+  ```
+
+- **Remove containers** (data persists)
+
+  ```sh
+  docker compose down
+  ```
+
+- **Remove containers AND volumes** (All data is deleted)
+
+  ```sh
+  docker compose down -v
   ```
 
 ---
@@ -101,13 +113,13 @@ MarketMoose is a containerised Flask application for tracking, analysing, and vi
 - **View Docker containers**:
 
   ```sh
-  docker-compose ps
+  docker compose ps
   ```
 
 - **Shell Access**:
 
   ```sh
-  docker-compose exec web sh
+  docker compose exec web sh
   ```
 
 ---
@@ -124,6 +136,118 @@ Place runtime settings in the `.env` file and reference them in `docker-compose.
 | `DIVIDENDS_FILE`        | Path to dividends JSON file               | `/app/data/dividends.json`    |
 | `EXCHANGE_SUFFIX`       | Suffix for ticker symbols (e.g. `.AX`)    | `ASX: .AX`, `JPX: .T,`, etc   |
 | `BENCHMARKS`            | List of benchmark symbols                 | `^GSPC`, `^AXJO`, `^AORD`     |
+
+---
+
+## 💾 Persistent Files & Volumes
+
+- **Persistent Files**:
+
+Docker Compose uses named volumes stored in the following locations:
+
+mm_data → mounted at /app/data (transactions.json, dividends.json, etc.)
+
+mm_stock_data_cache → mounted at /app/stock_data_cache (yfinance cache)
+
+These survive restarts and rebuilds, using the `docker compose down` command.
+They are only removed if you explicitly delete the volumes, using the `docker compose down -v` command.
+
+- **View / Edit your data files**:
+
+Because the files are in named volumes, use a helper container or the `exec` command.
+
+Inspect volume mountpoints:
+
+  ```sh
+  docker volume ls
+
+  docker volume inspect marketmoose_mm_data marketmoose_mm_stock_data_cache | grep Mountpoint
+  ```
+
+List files:
+
+  ```sh
+  docker compose exec web ls -lah /app/data
+
+  docker compose exec web ls -lah /app/stock_data_cache
+  ```
+
+Open a shell in the running container and edit:
+
+  ```sh
+  docker compose exec web sh
+
+  nano /app/data/transactions.json
+  ```
+
+- **Backup & Restore volumes**:
+
+Backup on Linux:
+
+  ```sh
+  mkdir -p ~/marketmoose_backups
+
+  docker volume ls
+
+  docker run --rm -v marketmoose_mm_data:/data -v ~/marketmoose_backups:/backup alpine \
+    tar czf /backup/mm_data_$(date +%Y%m%d).tar.gz -C /data .
+
+  docker run --rm -v marketmoose_mm_stock_data_cache:/stock_data_cache -v ~/marketmoose_backups:/backup alpine \
+    tar czf /backup/mm_stock_data_cache_$(date +%Y%m%d).tar.gz -C /stock_data_cache .
+  ```
+
+Restore on Linux:
+
+  ```sh
+  docker run --rm -v marketmoose_mm_data:/data -v ~/marketmoose_backups:/backup alpine \
+    sh -lc 'cd /data && tar xzf /backup/mm_data_YYYYMMDD.tar.gz'
+
+  docker run --rm -v marketmoose_mm_stock_data_cache:/stock_data_cache -v ~/marketmoose_backups:/backup alpine \
+    sh -lc 'cd /stock_data_cache && tar xzf /backup/mm_stock_data_cache_YYYYMMDD.tar.gz'
+  ```
+
+  Verify the restore worked:
+
+  ```sh
+  docker run --rm -v marketmoose_mm_data:/data alpine ls -lah /data
+
+  docker run --rm -v marketmoose_mm_stock_data_cache:/stock_data_cache alpine ls -lah /stock_data_cache
+  ```
+
+Backup on Windows:
+
+  ```sh
+  mkdir -p C:\Users\(username)\marketmoose_backups
+
+  docker volume ls
+
+  docker run --rm -v marketmoose_mm_data:/data -v "C:\Users\(username)\marketmoose_backups:/backup" alpine \
+    sh -c "tar czf /backup/mm_data_$(date +%Y%m%d).tar.gz -C /data ."
+
+  docker run --rm -v marketmoose_mm_stock_data_cache:/stock_data_cache -v "C:\Users\(username)\marketmoose_backups:/backup" alpine \
+    sh -c "tar czf /backup/mm_stock_data_cache_$(date +%Y%m%d).tar.gz -C /stock_data_cache ."
+  ```
+
+Restore on Windows:
+
+  ```sh
+
+  docker volume ls
+
+  docker run --rm -v marketmoose_mm_data:/data -v "C:\Users\(username)\marketmoose_backups:/backup" alpine \
+    sh -lc "cd /data && tar xzf /backup/mm_data_(date).tar.gz"
+
+  docker run --rm -v marketmoose_mm_stock_data_cache:/stock_data_cache -v "C:\Users\(username)\marketmoose_backups:/backup" alpine \
+    sh -lc "cd /stock_data_cache && tar xzf /backup/mm_stock_data_cache_(date).tar.gz"
+  ```
+
+  Verify the restore worked:
+
+  ```sh
+  docker run --rm -v marketmoose_mm_data:/data alpine ls -lah /data
+
+  docker run --rm -v marketmoose_mm_stock_data_cache:/stock_data_cache alpine ls -lah /stock_data_cache
+  ```
 
 ---
 
@@ -160,10 +284,12 @@ services:
     tmpfs:
       - /tmp
     volumes:
-      - ./data:/app/data
-      - ./stock_data_cache:/app/stock_data_cache
+      - mm_data:/app/data
+      - mm_stock_data_cache:/app/stock_data_cache
 volumes:
   redis_data:
+  mm_data:
+  mm_stock_data_cache:
 ```
 
 The `web` service runs `exec gunicorn -w 4 -b 0.0.0.0:8000 marketMoose:app` by default, as defined in the entrypoint.sh.
