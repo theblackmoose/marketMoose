@@ -45,13 +45,18 @@ COPY . .
 # ─────────────────────────────────────────────────────────────────────────
 FROM python:3.12.4-slim-bullseye@sha256:9a8f510466b54509a8e7d9d7bc300401d85537d5a08ed9131e389fcba50234b3 AS runtime
 
+# Install nano for in-container editing (optional utility)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends nano \
+    && rm -rf /var/lib/apt/lists/*
+
 LABEL org.opencontainers.image.title="MarketMoose" \
       org.opencontainers.image.description="Containerised Flask-based stock portfolio dashboard" \
-      org.opencontainers.image.version="1.0.0" \
+      org.opencontainers.image.version="2.0.0" \
       org.opencontainers.image.authors="theblackmoose" \
-      org.opencontainers.image.source="https://github.com/yourname/marketmoose" \
-      org.opencontainers.image.url="https://github.com/yourusername/marketmoose" \
-      org.opencontainers.image.documentation="https://github.com/yourusername/marketmoose/wiki" 
+      org.opencontainers.image.source="https://github.com/theblackmoose/marketMoose" \
+      org.opencontainers.image.url="https://github.com/theblackmoose/marketMoose" \
+      org.opencontainers.image.documentation="https://github.com/theblackmoose/marketMoose/wiki" 
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -60,29 +65,27 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Copy the virtualenv from the builder stage
-COPY --from=builder /opt/venv /opt/venv
+# Create the unprivileged user early so COPY can set ownership without chown -R
+RUN groupadd -r marketmoose && useradd -r -g marketmoose -d /home/marketmoose marketmoose
+
+# Copy the virtualenv from the builder stage (owned by app user)
+COPY --from=builder --chown=marketmoose:marketmoose /opt/venv /opt/venv
 
 # Copy only what the runtime needs from the builder stage:
-COPY --from=builder /app/marketMoose.py     /app/
-COPY --from=builder /app/api.py             /app/
-COPY --from=builder /app/config.py          /app/
-COPY --from=builder /app/entrypoint.sh      /app/
-COPY --from=builder /app/helpers.py         /app/
-COPY --from=builder /app/data               /app/data
-COPY --from=builder /app/routes             /app/routes
-COPY --from=builder /app/services           /app/services
-COPY --from=builder /app/static             /app/static
-COPY --from=builder /app/stock_data_cache   /app/stock_data_cache
-COPY --from=builder /app/templates          /app/templates
+COPY --from=builder --chown=marketmoose:marketmoose /app/marketMoose.py     /app/
+COPY --from=builder --chown=marketmoose:marketmoose /app/api.py             /app/
+COPY --from=builder --chown=marketmoose:marketmoose /app/config.py          /app/
+COPY --from=builder --chown=marketmoose:marketmoose /app/entrypoint.sh      /app/
+COPY --from=builder --chown=marketmoose:marketmoose /app/helpers.py         /app/
+COPY --from=builder --chown=marketmoose:marketmoose /app/data               /app/data
+COPY --from=builder --chown=marketmoose:marketmoose /app/routes             /app/routes
+COPY --from=builder --chown=marketmoose:marketmoose /app/services           /app/services
+COPY --from=builder --chown=marketmoose:marketmoose /app/static             /app/static
+COPY --from=builder --chown=marketmoose:marketmoose /app/stock_data_cache   /app/stock_data_cache
+COPY --from=builder --chown=marketmoose:marketmoose /app/templates          /app/templates
 
 # Make sure entrypoint.sh is executable
 RUN chmod +x /app/entrypoint.sh
-
-# Create a non-root user and chown everything to them
-RUN useradd --create-home marketmoose \
- && chown -R marketmoose:marketmoose /app \
- && chown -R marketmoose:marketmoose /opt/venv
 
 USER marketmoose
 
