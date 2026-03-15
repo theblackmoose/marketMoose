@@ -14,8 +14,9 @@ services:
   redis:
     image: redis:7
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+    # No ports exposed - Redis only reachable internally by web container
+    networks:
+      - internal # Redis only on internal network
     volumes:
       - redis_data:/data
 
@@ -27,7 +28,7 @@ services:
       - redis
 
     ports:
-      - "30053:8000" # External port 30053 → Flask app inside container on port 8000
+      - "127.0.0.1:30053:8000" # External port 30053 → Flask app inside container on port 8000
 
     environment:
       - TRANSACTIONS_FILE=/app/data/transactions.json
@@ -35,6 +36,10 @@ services:
       - DIVIDENDS_FILE=/app/data/dividends.json
       - REDIS_URL=redis://redis:6379/0
       - FLASK_APP=marketMoose
+
+    networks:
+      - internal # Can reach Redis
+      - external # Can accept incoming connections
 
     # ─────────────────────────────────────────────────────────────────────────
     # Drop all Linux capabilities (so the process has no extra privileges)
@@ -75,3 +80,13 @@ volumes:
   redis_data:
   mm_data:
   mm_stock_data_cache:
+
+# ─────────────────────────────────────────────────────────────────────────────────────
+# Internal network - Redis is isolated and not reachable from host or other containers
+# ─────────────────────────────────────────────────────────────────────────────────────
+networks:
+  internal:
+    driver: bridge
+    internal: true # Redis lives here, no external access
+  external:
+    driver: bridge # Web container accepts connections through this
