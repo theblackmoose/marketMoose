@@ -149,6 +149,8 @@ mm_data → mounted at /app/data (transactions.json, dividends.json, etc.)
 
 mm_stock_data_cache → mounted at /app/stock_data_cache (yfinance cache)
 
+mm_logs → mounted at /app/logs (error.log and access.log)
+
 These survive restarts and rebuilds, using the `docker compose down` command.
 They are only removed if you explicitly delete the volumes, using the `docker compose down -v` command.
 
@@ -161,7 +163,7 @@ Inspect volume mountpoints:
   ```sh
   docker volume ls
 
-  docker volume inspect marketmoose_mm_data marketmoose_mm_stock_data_cache | grep Mountpoint
+  docker volume inspect marketmoose_mm_data marketmoose_mm_stock_data_cache marketmoose_mm_logs | grep Mountpoint
   ```
 
 List files:
@@ -170,6 +172,8 @@ List files:
   docker compose exec web ls -lah /app/data
 
   docker compose exec web ls -lah /app/stock_data_cache
+
+  docker compose exec web ls -lah /app/logs
   ```
 
 Open a shell in the running container and edit:
@@ -194,6 +198,9 @@ Backup on Linux:
 
   docker run --rm -v marketmoose_mm_stock_data_cache:/stock_data_cache -v ~/marketmoose_backups:/backup alpine \
     tar czf /backup/mm_stock_data_cache_$(date +%Y%m%d).tar.gz -C /stock_data_cache .
+
+  docker run --rm -v marketmoose_mm_logs:/logs -v ~/marketmoose_backups:/backup alpine \
+    tar czf /backup/mm_logs_$(date +%Y%m%d).tar.gz -C /logs .
   ```
 
 Restore on Linux:
@@ -204,6 +211,9 @@ Restore on Linux:
 
   docker run --rm -v marketmoose_mm_stock_data_cache:/stock_data_cache -v ~/marketmoose_backups:/backup alpine \
     sh -lc 'cd /stock_data_cache && tar xzf /backup/mm_stock_data_cache_YYYYMMDD.tar.gz'
+
+  docker run --rm -v marketmoose_mm_logs:/logs -v ~/marketmoose_backups:/backup alpine \
+    sh -lc 'cd /logs && tar xzf /backup/mm_logs_YYYYMMDD.tar.gz'
   ```
 
   Verify the restore worked:
@@ -212,6 +222,8 @@ Restore on Linux:
   docker run --rm -v marketmoose_mm_data:/data alpine ls -lah /data
 
   docker run --rm -v marketmoose_mm_stock_data_cache:/stock_data_cache alpine ls -lah /stock_data_cache
+
+  docker run --rm -v marketmoose_mm_logs:/logs alpine ls -lah /logs
   ```
 
 Backup on Windows:
@@ -226,6 +238,9 @@ Backup on Windows:
 
   docker run --rm -v marketmoose_mm_stock_data_cache:/stock_data_cache -v "C:\Users\(username)\marketmoose_backups:/backup" alpine \
     sh -c "tar czf /backup/mm_stock_data_cache_$(date +%Y%m%d).tar.gz -C /stock_data_cache ."
+
+  docker run --rm -v marketmoose_mm_logs:/logs -v "C:\Users\(username)\marketmoose_backups:/backup" alpine \
+    sh -c "tar czf /backup/mm_logs_$(date +%Y%m%d).tar.gz -C /logs ."
   ```
 
 Restore on Windows:
@@ -239,6 +254,9 @@ Restore on Windows:
 
   docker run --rm -v marketmoose_mm_stock_data_cache:/stock_data_cache -v "C:\Users\(username)\marketmoose_backups:/backup" alpine \
     sh -lc "cd /stock_data_cache && tar xzf /backup/mm_stock_data_cache_(date).tar.gz"
+
+  docker run --rm -v marketmoose_mm_logs:/logs -v "C:\Users\(username)\marketmoose_backups:/backup" alpine \
+    sh -lc "cd /logs && tar xzf /backup/mm_logs_(date).tar.gz"
   ```
 
   Verify the restore worked:
@@ -247,6 +265,8 @@ Restore on Windows:
   docker run --rm -v marketmoose_mm_data:/data alpine ls -lah /data
 
   docker run --rm -v marketmoose_mm_stock_data_cache:/stock_data_cache alpine ls -lah /stock_data_cache
+
+  docker run --rm -v marketmoose_mm_logs:/logs alpine ls -lah /logs
   ```
 
 ---
@@ -258,8 +278,13 @@ services:
   redis:
     image: redis:7
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"   # Rotate after 10 MB
+        max-file: "5"     # Keep 5 rotated files (50 MB total)
+    networks:
+      - internal # Redis only on internal network
     volumes:
       - redis_data:/data
   web:
@@ -269,13 +294,21 @@ services:
     depends_on:
       - redis
     ports:
-      - "30053:8000" # External port 30053 → Flask app inside container on port 8000
+      - "127.0.0.1:30053:8000" # External port 30053 → Flask app inside container on port 8000
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"   # Rotate after 10 MB
+        max-file: "5"     # Keep 5 rotated files (50 MB total)
     environment:
       - TRANSACTIONS_FILE=/app/data/transactions.json
       - CACHE_DIR=/app/stock_data_cache
       - DIVIDENDS_FILE=/app/data/dividends.json
       - REDIS_URL=redis://redis:6379/0
       - FLASK_APP=marketMoose
+    networks:
+      - internal # Can reach Redis
+      - external # Can accept incoming connections
     cap_drop:
       - ALL
     security_opt:
@@ -286,13 +319,21 @@ services:
     volumes:
       - mm_data:/app/data
       - mm_stock_data_cache:/app/stock_data_cache
+      - mm_logs:/app/logs
 volumes:
   redis_data:
   mm_data:
   mm_stock_data_cache:
+  mm_logs:
+networks:
+  internal:
+    driver: bridge
+    internal: true # Redis lives here, no external access
+  external:
+    driver: bridge # Web container accepts connections through this
 ```
 
-The `web` service runs `exec gunicorn -w 4 -b 0.0.0.0:8000 marketMoose:app` by default, as defined in the entrypoint.sh.
+The `web` service runs `exec gunicorn -w 4 -b 0.0.0.0:8000 --access-logfile /app/logs/access.log --error-logfile /app/logs/error.log marketMoose:app` by default, as defined in the entrypoint.sh.
 
 ---
 
