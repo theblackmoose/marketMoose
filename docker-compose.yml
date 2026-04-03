@@ -15,6 +15,13 @@ services:
     image: redis:7
     restart: unless-stopped
     # No ports exposed - Redis only reachable internally by web container
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"   # Rotate after 10 MB
+        max-file: "5"     # Keep 5 rotated files (50 MB total)
+
     networks:
       - internal # Redis only on internal network
     volumes:
@@ -29,6 +36,12 @@ services:
 
     ports:
       - "127.0.0.1:30053:8000" # External port 30053 → Flask app inside container on port 8000
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"   # Rotate after 10 MB
+        max-file: "5"     # Keep 5 rotated files (50 MB total)
 
     environment:
       - TRANSACTIONS_FILE=/app/data/transactions.json
@@ -65,13 +78,17 @@ services:
     # VOLUMES (override read_only for these paths so they remain writeable)
     # ─────────────────────────────────────────────────────────────────────────
     volumes:
-      # 1) The transactions and dividents file are stored in named volumes,
+      # 1) The transactions and dividends file are stored in named volumes,
       #    and avoid host-FS permission mismatches and stay writable.
       - mm_data:/app/data
 
       # 2) The yfinance cache are stored in named volumes,
       #    and avoid host-FS permission mismatches and stay writable.
       - mm_stock_data_cache:/app/stock_data_cache
+
+      # 3) The logs are stored in named volumes, and avoid host-FS permission
+      #    mismatch and stay writeable.
+      - mm_logs:/app/logs
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Top-level “volumes:” must be defined here, at the same indent as “services:”
@@ -80,6 +97,7 @@ volumes:
   redis_data:
   mm_data:
   mm_stock_data_cache:
+  mm_logs:
 
 # ─────────────────────────────────────────────────────────────────────────────────────
 # Internal network - Redis is isolated and not reachable from host or other containers
