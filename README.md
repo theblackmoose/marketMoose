@@ -119,7 +119,7 @@ MarketMoose is a containerised Flask application for tracking, analysing, and vi
 - **Shell Access**:
 
   ```sh
-  docker compose exec web sh
+  docker compose exec web bash
   ```
 
 ---
@@ -179,7 +179,7 @@ List files:
 Open a shell in the running container and edit:
 
   ```sh
-  docker compose exec web sh
+  docker compose exec web bash
 
   nano /app/data/transactions.json
   ```
