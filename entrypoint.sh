@@ -47,4 +47,7 @@ download_stock_data(pairs, force_refresh=False)
 EOF
 
 # 3) Start the Flask app via Gunicorn
-exec gunicorn -w 4 -b 0.0.0.0:8000 marketMoose:app
+exec gunicorn -w 4 -b 0.0.0.0:8000 \
+  --access-logfile /app/logs/access.log \
+  --error-logfile /app/logs/error.log \
+  marketMoose:app
