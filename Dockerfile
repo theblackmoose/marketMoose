@@ -83,6 +83,7 @@ COPY --from=builder --chown=marketmoose:marketmoose /app/services           /app
 COPY --from=builder --chown=marketmoose:marketmoose /app/static             /app/static
 COPY --from=builder --chown=marketmoose:marketmoose /app/stock_data_cache   /app/stock_data_cache
 COPY --from=builder --chown=marketmoose:marketmoose /app/templates          /app/templates
+COPY --from=builder --chown=marketmoose:marketmoose /app/logs               /app/logs
 
 # Make sure entrypoint.sh is executable
 RUN chmod +x /app/entrypoint.sh
