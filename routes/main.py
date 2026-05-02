@@ -10,7 +10,8 @@ import os
 import uuid
 import time
 import pandas as pd
-from datetime import datetime
+import threading
+from datetime import datetime, timezone, timedelta
 from flask import g
 from flask import (
     Blueprint,
@@ -24,7 +25,7 @@ from flask import (
 )
 from contextlib import contextmanager
 from services.transactions import load_transactions, save_transaction
-from services.yf_cache import download_stock_data
+from services.yf_cache import download_stock_data, cache_needs_update, mark_cache_updated
 from services.dividends import load_dividends, save_dividend, delete_dividends
 from services.portfolio import (
     get_portfolio_value_history,
@@ -38,6 +39,32 @@ from services.fx import calculate_fx_rates, get_fy_dates
 from helpers import dataframe_to_json, render_empty_dashboard, get_benchmark_return_history
 from services.pl_calendar import pl_calendar_for_cached
 from config import BENCHMARKS, EXCHANGE_SUFFIX, EXCHANGE_CURRENCY, CURRENCY_SYMBOLS
+
+def _refresh_cache_if_stale(pairs):
+    """Runs in a background thread — fetches new price data if cache is stale."""
+    from marketMoose import app
+    with app.app_context():
+        try:
+            if cache_needs_update():
+                # Only mark as updated after 4:30PM AEST (6:30AM UTC), or specified in CACHE_UPDATE_HOUR_UTC
+                cache_update_hour = float(os.environ.get("CACHE_UPDATE_HOUR_UTC", "6.5"))
+                now_utc = datetime.now(timezone.utc)
+                now_hours = now_utc.hour + now_utc.minute / 60
+                if now_hours >= cache_update_hour:
+                    # After market close - fetch everything including today
+                    download_stock_data(pairs, force_refresh=False)
+                    mark_cache_updated()
+                    current_app.logger.info("Background cache refresh completed.")
+                else:
+                    # Before market close - fetch previous days only, not today
+                    yesterday = (now_utc - timedelta(days=1)).date()
+                    rows_appended = download_stock_data(pairs, force_refresh=False, cutoff_date=yesterday)
+                    if rows_appended > 0:
+                        current_app.logger.info("Previous days fetched. Waiting for market close for today's data.")
+                    else:
+                        current_app.logger.info("Cache refreshed but market not closed yet — will retry later.")
+        except Exception as e:
+            current_app.logger.error(f"Background cache refresh failed: {e}")
 
 def timed_step(label, func, *args, **kwargs):
     """Times and logs the execution of a function call with the given label."""
@@ -165,7 +192,14 @@ def _handle_new_transaction(request, order_by, display_currency, selected_fy, ma
         flash("Transaction saved.", "success")
         # trigger yfinance cache for this one ticker
         try:
-            download_stock_data([(symbol, exch)], force_refresh=False)
+            cache_update_hour = float(os.environ.get("CACHE_UPDATE_HOUR_UTC", "6.5"))
+            now_utc = datetime.now(timezone.utc)
+            now_hours = now_utc.hour + now_utc.minute / 60
+            if now_hours >= cache_update_hour:
+                download_stock_data([(symbol, exch)], force_refresh=False)
+            else:
+                yesterday = (now_utc - timedelta(days=1)).date()
+                download_stock_data([(symbol, exch)], force_refresh=False, cutoff_date=yesterday)
             current_app.logger.info(f"Triggered cache update for {symbol}{suffix}")
         except Exception as e:
             current_app.logger.warning(f"Cache update failed for {symbol}{suffix}: {e}")
@@ -507,7 +541,7 @@ def _compute_dashboard_data(
         cache_file = os.path.join(current_app.config["CACHE_DIR"], f"{sym}{suffix}.csv")
         if os.path.exists(cache_file):
             dfp = pd.read_csv(cache_file, parse_dates=["Date"], index_col="Date")
-            dfp.index = pd.to_datetime(dfp.index, utc=True).tz_convert(None).normalize()
+            dfp.index = pd.to_datetime(dfp.index).tz_localize(None).normalize()
             price_rows = dfp[dfp.index <= pd.Timestamp(asof_date)]
             last_close = price_rows["Close"].iloc[-1] if not price_rows.empty else None
             price_mapping[(sym, exch)] = last_close
@@ -529,14 +563,22 @@ def _compute_dashboard_data(
         broker_fees_by_currency = {}
 
     # --- Phase 11: P/L Calendar with Caching ---
+    if fy_start is None or fy_end is None:
+        current_year = datetime.now().year
+        pl_cal_start = datetime(current_year, 1, 1).date()
+        pl_cal_end = datetime(current_year, 12, 31).date()
+    else:
+        pl_cal_start = fy_start
+        pl_cal_end = fy_end
+
     current_app.logger.debug(
         f"PL calendar input — transactions from "
         f"{df_tx_for_calc['date'].min()} to {df_tx_for_calc['date'].max()}, "
-        f"FY window from {fy_start} to {fy_end}"
+        f"FY window from {pl_cal_start} to {pl_cal_end}"
     )
-    
+
     with log_timing("pl_calendar_for_cached"):
-        pl_calendar_json = pl_calendar_for_cached(df_tx_for_calc, fx_rates, fy_start, fy_end)
+        pl_calendar_json = pl_calendar_for_cached(df_tx_for_calc, fx_rates, pl_cal_start, pl_cal_end)
     current_app.logger.info("Computed P/L calendar JSON.")
 
     result = {
@@ -615,6 +657,10 @@ def index():
             benchmark_choices=benchmark_choices,
             selected_benchmark=selected_benchmark,
         )
+
+    # Kick off a background cache refresh if data is stale
+    pairs = list(dict.fromkeys(zip(df_tx_for_calc["symbol"], df_tx_for_calc["exchange"])))
+    threading.Thread(target=_refresh_cache_if_stale, args=(pairs,), daemon=True).start()
 
     # Compute everything else 
     data = _compute_dashboard_data(
