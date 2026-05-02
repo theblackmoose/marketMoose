@@ -136,6 +136,7 @@ Place runtime settings in the `.env` file and reference them in `docker-compose.
 | `DIVIDENDS_FILE`        | Path to dividends JSON file               | `/app/data/dividends.json`    |
 | `EXCHANGE_SUFFIX`       | Suffix for ticker symbols (e.g. `.AX`)    | `ASX: .AX`, `JPX: .T,`, etc   |
 | `BENCHMARKS`            | List of benchmark symbols                 | `^GSPC`, `^AXJO`, `^AORD`     |
+| `CACHE_UPDATE_HOUR_UTC` | UTC hour when cache is marked as updated  | `6.5` = 16:30 AEST            |
 
 ---
 
@@ -306,6 +307,7 @@ services:
       - DIVIDENDS_FILE=/app/data/dividends.json
       - REDIS_URL=redis://redis:6379/0
       - FLASK_APP=marketMoose
+      - CACHE_UPDATE_HOUR_UTC=6.5  # UTC hour after which cache is marked as updated. Change to your timezone.
     networks:
       - internal # Can reach Redis
       - external # Can accept incoming connections
@@ -333,7 +335,9 @@ networks:
     driver: bridge # Web container accepts connections through this
 ```
 
-The `web` service runs `exec gunicorn -w 4 -b 0.0.0.0:8000 --access-logfile /app/logs/access.log --error-logfile /app/logs/error.log marketMoose:app` by default, as defined in the entrypoint.sh.
+The `web` service runs `exec gunicorn --config /app/gunicorn.conf.py marketMoose:app` by default, as defined in the entrypoint.sh.
+
+gunicorn.conf.py contains the Gunicorn configuration for MarketMoose.
 
 ---
 
