@@ -77,6 +77,7 @@ COPY --from=builder --chown=marketmoose:marketmoose /app/api.py             /app
 COPY --from=builder --chown=marketmoose:marketmoose /app/config.py          /app/
 COPY --from=builder --chown=marketmoose:marketmoose /app/entrypoint.sh      /app/
 COPY --from=builder --chown=marketmoose:marketmoose /app/helpers.py         /app/
+COPY --from=builder --chown=marketmoose:marketmoose /app/gunicorn.conf.py   /app/
 COPY --from=builder --chown=marketmoose:marketmoose /app/data               /app/data
 COPY --from=builder --chown=marketmoose:marketmoose /app/routes             /app/routes
 COPY --from=builder --chown=marketmoose:marketmoose /app/services           /app/services
