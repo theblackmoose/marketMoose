@@ -49,6 +49,7 @@ services:
       - DIVIDENDS_FILE=/app/data/dividends.json
       - REDIS_URL=redis://redis:6379/0
       - FLASK_APP=marketMoose
+      - CACHE_UPDATE_HOUR_UTC=6.5  # UTC hour after which cache is marked as updated. Change to your timezone.
 
     networks:
       - internal # Can reach Redis
